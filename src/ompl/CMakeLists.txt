@@ -81,3 +81,9 @@ if(NOT MSVC)
         "${CMAKE_CURRENT_SOURCE_DIR}/../../py-bindings/ompl/util/libompl${CMAKE_SHARED_LIBRARY_SUFFIX}"
         WORKING_DIRECTORY "${LIBRARY_OUTPUT_PATH}")
 endif(NOT MSVC)
+
+
+# This custom target doesn't affect building the project but is only for
+# displaying the header files in IDEs.
+FILE(GLOB_RECURSE LibFiles "*.hpp")
+add_custom_target(headers SOURCES ${LibFiles})
