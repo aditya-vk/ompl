@@ -746,6 +746,7 @@ namespace ompl
         bool BITstar::checkEdge(const VertexConstPtrPair &edge)
         {
             ++numEdgeCollisionChecks_;
+            mLength += si_->distance(edge.first->stateConst(), edge.second->stateConst());
             return Planner::si_->checkMotion(edge.first->stateConst(), edge.second->stateConst());
         }
 
@@ -928,7 +929,8 @@ namespace ompl
             // Log the progress: time and cost.
             std::chrono::time_point<std::chrono::system_clock> currentTime(std::chrono::system_clock::now());
             std::chrono::duration<double> totalTime{currentTime - mStartTime};
-            std::vector<double> currentCostTimeEvals{bestCost_.value(), totalTime.count(), numEdgeCollisionChecks_};
+            std::vector<double> currentCostTimeEvals{bestCost_.value(), totalTime.count(), numEdgeCollisionChecks_,
+                                                     mLength};
             costTimeEvals.emplace_back(currentCostTimeEvals);
 
             OMPL_INFORM("%s (%u iters): Found a solution of cost %.4f (%u vertices) from %u samples by processing "
@@ -949,7 +951,7 @@ namespace ompl
             logFile.open(filename, std::ios_base::app);
             for (const auto &point : costTimeEvals)
             {
-                logFile << point[0] << " " << point[1] << " " << point[2] << std::endl;
+                logFile << point[0] << " " << point[1] << " " << point[2] << " " << point[3] << std::endl;
             }
             logFile.close();
 

@@ -493,6 +493,7 @@ namespace ompl
             // Timer and Logger
             std::chrono::time_point<std::chrono::system_clock> mStartTime;
             mutable std::vector<std::vector<double>> costTimeEvals;
+            double mLength{0};
         };  // class: BITstar
     }       // namespace geometric
 }  // namespace ompl
