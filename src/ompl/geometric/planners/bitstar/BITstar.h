@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2014, University of Toronto
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the University of Toronto nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2014, University of Toronto
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the University of Toronto nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Authors: Jonathan Gammell */
 
@@ -44,6 +44,8 @@
 #include <utility>
 // std::vector
 #include <vector>
+// std::chrono
+#include <chrono>
 
 // OMPL:
 // The base-class of planners:
@@ -430,7 +432,7 @@ namespace ompl
 
             /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider.
              * Accessible via bestCostProgressProperty */
-             // Gets set in setup to the proper calls from OptimizationObjective
+            // Gets set in setup to the proper calls from OptimizationObjective
             ompl::base::Cost bestCost_{std::numeric_limits<double>::infinity()};
 
             /** \brief The number of vertices in the best solution found to date. Accessible via
@@ -439,12 +441,12 @@ namespace ompl
 
             /** \brief The cost to which the problem has been pruned. We will only prune the graph when a new solution
              * is sufficiently less than this value. */
-             // Gets set in setup to the proper calls from OptimizationObjective
+            // Gets set in setup to the proper calls from OptimizationObjective
             ompl::base::Cost prunedCost_{std::numeric_limits<double>::infinity()};
 
             /** \brief The measure to which the problem has been pruned. We will only prune the graph when the resulting
              * measure of a new solution is sufficiently less than this value. */
-             // Gets set in setup with the proper call to Planner::si_->getSpaceMeasure()
+            // Gets set in setup with the proper call to Planner::si_->getSpaceMeasure()
             double prunedMeasure_{0.0};
 
             /** \brief If we've found an exact solution yet */
@@ -486,7 +488,12 @@ namespace ompl
             /** \brief Whether to stop the planner as soon as the path changes (param) */
             bool stopOnSolnChange_{false};
             ///////////////////////////////////////////////////////////////////
+
+            ///////////////////////////////////////////////////////////////////
+            // Timer and Logger
+            std::chrono::time_point<std::chrono::system_clock> mStartTime;
+            mutable std::vector<std::vector<double>> costTime;
         };  // class: BITstar
-    }  // geometric
-}  // ompl
+    }       // namespace geometric
+}  // namespace ompl
 #endif  // OMPL_GEOMETRIC_PLANNERS_BITSTAR_BITSTAR_

@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2014, University of Toronto
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the University of Toronto nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2014, University of Toronto
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the University of Toronto nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Authors: Jonathan Gammell */
 
@@ -45,6 +45,7 @@
 #include <memory>
 // For boost::adaptors::reverse which let "for (auto ...)" loops iterate in reverse
 #include <boost/range/adaptor/reversed.hpp>
+#include <fstream>
 
 // For OMPL_INFORM et al.
 #include "ompl/util/Console.h"
@@ -72,7 +73,7 @@
 #include "ompl/geometric/planners/bitstar/datastructures/SearchQueue.h"
 
 #ifdef BITSTAR_DEBUG
-    #warning Compiling BIT* with debug-level asserts
+#warning Compiling BIT* with debug-level asserts
 #endif  // BITSTAR_DEBUG
 
 namespace ompl
@@ -91,14 +92,8 @@ namespace ompl
             // Allocate my helper classes, they hold settings and must never be deallocated. Give them a pointer to my
             // name, so they can output helpful error messages
             costHelpPtr_ = std::make_shared<CostHelper>();
-            graphPtr_ = std::make_shared<ImplicitGraph>([this]()
-                                                        {
-                                                            return getName();
-                                                        });
-            queuePtr_ = std::make_shared<SearchQueue>([this]()
-                                                      {
-                                                          return getName();
-                                                      });
+            graphPtr_ = std::make_shared<ImplicitGraph>([this]() { return getName(); });
+            queuePtr_ = std::make_shared<SearchQueue>([this]() { return getName(); });
             queuePtr_->setPruneDuringResort(usePruning_);
 
             // Make sure the default name reflects the default k-nearest setting
@@ -129,10 +124,12 @@ namespace ompl
                                           "1.0:0.01:3.0");
             Planner::declareParam<unsigned int>("samples_per_batch", this, &BITstar::setSamplesPerBatch,
                                                 &BITstar::getSamplesPerBatch, "1:1:1000000");
-            Planner::declareParam<bool>("use_k_nearest", this, &BITstar::setUseKNearest, &BITstar::getUseKNearest, "0,"
-                                                                                                                   "1");
-            Planner::declareParam<bool>("use_graphPtr_pruning", this, &BITstar::setPruning, &BITstar::getPruning, "0,"
-                                                                                                                  "1");
+            Planner::declareParam<bool>("use_k_nearest", this, &BITstar::setUseKNearest, &BITstar::getUseKNearest,
+                                        "0,"
+                                        "1");
+            Planner::declareParam<bool>("use_graphPtr_pruning", this, &BITstar::setPruning, &BITstar::getPruning,
+                                        "0,"
+                                        "1");
             Planner::declareParam<double>("prune_threshold_as_fractional_cost_change", this,
                                           &BITstar::setPruneThresholdFraction, &BITstar::getPruneThresholdFraction,
                                           "0.0:0.01:1.0");
@@ -151,34 +148,18 @@ namespace ompl
                                         &BITstar::getConsiderApproximateSolutions, "0,1");
 
             // Register my progress info:
-            addPlannerProgressProperty("best cost REAL", [this]
-                                       {
-                                           return bestCostProgressProperty();
-                                       });
-            addPlannerProgressProperty("number of segments in solution path INTEGER", [this]
-                                       {
-                                           return bestLengthProgressProperty();
-                                       });
-            addPlannerProgressProperty("current free states INTEGER", [this]
-                                       {
-                                           return currentFreeProgressProperty();
-                                       });
-            addPlannerProgressProperty("current graph vertices INTEGER", [this]
-                                       {
-                                           return currentVertexProgressProperty();
-                                       });
-            addPlannerProgressProperty("state collision checks INTEGER", [this]
-                                       {
-                                           return stateCollisionCheckProgressProperty();
-                                       });
-            addPlannerProgressProperty("edge collision checks INTEGER", [this]
-                                       {
-                                           return edgeCollisionCheckProgressProperty();
-                                       });
-            addPlannerProgressProperty("nearest neighbour calls INTEGER", [this]
-                                       {
-                                           return nearestNeighbourProgressProperty();
-                                       });
+            addPlannerProgressProperty("best cost REAL", [this] { return bestCostProgressProperty(); });
+            addPlannerProgressProperty("number of segments in solution path INTEGER",
+                                       [this] { return bestLengthProgressProperty(); });
+            addPlannerProgressProperty("current free states INTEGER", [this] { return currentFreeProgressProperty(); });
+            addPlannerProgressProperty("current graph vertices INTEGER",
+                                       [this] { return currentVertexProgressProperty(); });
+            addPlannerProgressProperty("state collision checks INTEGER",
+                                       [this] { return stateCollisionCheckProgressProperty(); });
+            addPlannerProgressProperty("edge collision checks INTEGER",
+                                       [this] { return edgeCollisionCheckProgressProperty(); });
+            addPlannerProgressProperty("nearest neighbour calls INTEGER",
+                                       [this] { return nearestNeighbourProgressProperty(); });
 
             // Extra progress info that aren't necessary for every day use. Uncomment if desired.
             /*
@@ -249,7 +230,8 @@ namespace ompl
                 {
                     if (!Planner::pdef_->getGoal()->hasType(ompl::base::GOAL_SAMPLEABLE_REGION))
                     {
-                        OMPL_ERROR("%s::setup() BIT* currently only supports goals that can be cast to a sampleable goal "
+                        OMPL_ERROR("%s::setup() BIT* currently only supports goals that can be cast to a sampleable "
+                                   "goal "
                                    "region.",
                                    Planner::getName().c_str());
                         // Mark as not setup:
@@ -266,9 +248,10 @@ namespace ompl
                 // Setup the queue
                 queuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
 
-                // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a NN struct
-                // and check for starts/goals, respectively.
-                graphPtr_->setup(Planner::si_, Planner::pdef_, costHelpPtr_.get(), queuePtr_.get(), this, Planner::pis_);
+                // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a NN
+                // struct and check for starts/goals, respectively.
+                graphPtr_->setup(Planner::si_, Planner::pdef_, costHelpPtr_.get(), queuePtr_.get(), this,
+                                 Planner::pis_);
 
                 // Set the best and pruned costs to the proper objective-based values:
                 bestCost_ = costHelpPtr_->infiniteCost();
@@ -325,13 +308,16 @@ namespace ompl
 
         ompl::base::PlannerStatus BITstar::solve(const ompl::base::PlannerTerminationCondition &ptc)
         {
+            mStartTime = std::chrono::system_clock::now();
+
             // Check that Planner::setup_ is true, if not call this->setup()
             Planner::checkValidity();
 
             // Assert setup succeeded
             if (!Planner::setup_)
             {
-                throw ompl::Exception("%s::solve() failed to set up the planner. Has a problem definition been set?", Planner::getName().c_str());
+                throw ompl::Exception("%s::solve() failed to set up the planner. Has a problem definition been set?",
+                                      Planner::getName().c_str());
             }
             // No else
 
@@ -350,16 +336,20 @@ namespace ompl
             // Warn if we are missing a start
             if (!graphPtr_->hasAStart())
             {
-                // We don't have a start, since there's no way to wait for one to appear, so we will not be solving this "problem" today
-                OMPL_WARN("%s: A solution cannot be found as no valid start states are available.", Planner::getName().c_str());
+                // We don't have a start, since there's no way to wait for one to appear, so we will not be solving this
+                // "problem" today
+                OMPL_WARN("%s: A solution cannot be found as no valid start states are available.",
+                          Planner::getName().c_str());
             }
             // No else, it's a start
 
             // Warn if we are missing a goal
             if (!graphPtr_->hasAGoal())
             {
-                // We don't have a goal (and we waited as long as ptc allowed us for one to appear), so we will not be solving this "problem" today
-                OMPL_WARN("%s: A solution cannot be found as no valid goal states are available.", Planner::getName().c_str());
+                // We don't have a goal (and we waited as long as ptc allowed us for one to appear), so we will not be
+                // solving this "problem" today
+                OMPL_WARN("%s: A solution cannot be found as no valid goal states are available.",
+                          Planner::getName().c_str());
             }
             // No else, there's a goal to all of this
 
@@ -403,7 +393,7 @@ namespace ompl
             // solutions.
             // PlannerStatus(addedSolution, approximate)
             return {hasExactSolution_ || graphPtr_->getTrackApproximateSolutions(),
-                                             !hasExactSolution_ && graphPtr_->getTrackApproximateSolutions()};
+                    !hasExactSolution_ && graphPtr_->getTrackApproximateSolutions()};
         }
 
         void BITstar::getPlannerData(ompl::base::PlannerData &data) const
@@ -736,8 +726,7 @@ namespace ompl
             // *parent* of the iterator into the vector until the vertex has no parent.
             // This will allows us to add the start (as the parent of the first child) and then stop when we get to the
             // start itself, avoiding trying to find its nonexistent child
-            for (/*Already allocated & initialized*/; !curVertex->isRoot();
-                 curVertex = curVertex->getParentConst())
+            for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParentConst())
             {
 #ifdef BITSTAR_DEBUG
                 // Check the case where the chain ends incorrectly.
@@ -788,7 +777,7 @@ namespace ompl
 #ifdef BITSTAR_DEBUG
                 graphPtr_->assertValidSample(newEdge.second, false);
 #endif  // BITSTAR_DEBUG
-                // If not, we just add the vertex
+        // If not, we just add the vertex
 
                 // Add a parent to the child, updating descendant costs:
                 newEdge.second->addParent(newEdge.first, edgeCost, true);
@@ -936,7 +925,14 @@ namespace ompl
 
         void BITstar::goalMessage() const
         {
-            OMPL_INFORM("%s (%u iters): Found a solution of cost %.4f (%u vertices) from %u samples by processing %u "
+            // Log the progress: time and cost.
+            std::chrono::time_point<std::chrono::system_clock> currentTime(std::chrono::system_clock::now());
+            std::chrono::duration<double> totalTime{currentTime - mStartTime};
+            std::vector<double> currentCostTimeEvals{bestCost_.value(), totalTime.count(), numEdgeCollisionChecks_};
+            costTimeEvals.emplace_back(currentCostTimeEvals);
+
+            OMPL_INFORM("%s (%u iters): Found a solution of cost %.4f (%u vertices) from %u samples by processing "
+                        "%u "
                         "edges (%u collision checked) to create %u vertices and perform %u rewirings. The graph "
                         "currently has %u vertices.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
@@ -946,6 +942,17 @@ namespace ompl
 
         void BITstar::endSuccessMessage() const
         {
+            // Log the progress into a file.
+            std::ofstream logFile;
+            std::string filename = "/home/adityavk/workspaces/research-ws/code/src/planning_gym/data/"
+                                   "03-27-2020/exp1/bitstar_cost_time_evals.txt";
+            logFile.open(filename, std::ios_base::app);
+            for (const auto &point : costTimeEvals)
+            {
+                logFile << point[0] << " " << point[1] << " " << point[2] << std::endl;
+            }
+            logFile.close();
+
             OMPL_INFORM("%s: Finished with a solution of cost %.4f (%u vertices) found from %u samples by processing "
                         "%u edges (%u collision checked) to create %u vertices and perform %u rewirings. The final "
                         "graph has %u vertices.",
@@ -1299,5 +1306,5 @@ namespace ompl
             return std::to_string(queuePtr_->numEdgesPopped());
         }
         /////////////////////////////////////////////////////////////////////////////////////////////
-    }  // geometric
-}  // ompl
+    }  // namespace geometric
+}  // namespace ompl
