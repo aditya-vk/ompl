@@ -65,24 +65,24 @@ install_app_dependencies()
 
 install_ompl()
 {
-    if [ -z $APP ]; then
-        OMPL="ompl"
-    else
-        OMPL="omplapp"
-    fi
-    if [ -z $GITHUB ]; then
-        if [ -z $APP]; then
-            wget -O - https://github.com/ompl/${OMPL}/archive/@PROJECT_VERSION@.tar.gz | tar zxf -
-            cd ${OMPL}-@PROJECT_VERSION@
-        else
-            wget -O - https://github.com/ompl/${OMPL}/releases/download/@PROJECT_VERSION@/${OMPL}-@PROJECT_VERSION@-Source.tar.gz | tar zxf -
-            cd $OMPL-@PROJECT_VERSION@-Source
-        fi
-    else
-        ${SUDO} apt-get -y install git
-        git clone --recurse-submodules https://github.com/ompl/${OMPL}.git
-        cd $OMPL
-    fi
+    # if [ -z $APP ]; then
+    #     OMPL="ompl"
+    # else
+    #     OMPL="omplapp"
+    # fi
+    # if [ -z $GITHUB ]; then
+    #     if [ -z $APP]; then
+    #         wget -O - https://github.com/ompl/${OMPL}/archive/@PROJECT_VERSION@.tar.gz | tar zxf -
+    #         cd ${OMPL}-@PROJECT_VERSION@
+    #     else
+    #         wget -O - https://github.com/ompl/${OMPL}/releases/download/@PROJECT_VERSION@/${OMPL}-@PROJECT_VERSION@-Source.tar.gz | tar zxf -
+    #         cd $OMPL-@PROJECT_VERSION@-Source
+    #     fi
+    # else
+    #     ${SUDO} apt-get -y install git
+    #     git clone --recurse-submodules https://github.com/ompl/${OMPL}.git
+    #     cd $OMPL
+    # fi
     mkdir -p build/Release
     cd build/Release
     cmake ../.. -DPYTHON_EXEC=/usr/bin/python${PYTHONV}
