@@ -369,10 +369,10 @@ namespace ompl
                     Planner::pis_.haveMoreStartStates() || Planner::pis_.haveMoreGoalStates()))
             {
                 this->iterate();
-                if (graphPtr_->getGraphSize() > maxGraphSize_)
-                {
-                    break;
-                }
+                // if (graphPtr_->getGraphSize() > maxGraphSize_)
+                // {
+                //     break;
+                // }
             }
 
             // Announce
