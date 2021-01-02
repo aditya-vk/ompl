@@ -284,11 +284,9 @@ namespace ompl
             void setIterationNumber(int iteration);
             std::size_t getGraphSize() const
             {
-                VertexPtrVector vertices;
                 VertexPtrVector samples;
-                vertexNN_->list(vertices);
-                freeStateNN_->list(samples);
-                return vertices.size() + samples.size();
+                samples_->list(samples);
+                return samples.size();
             }
 
         private:
