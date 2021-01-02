@@ -41,7 +41,7 @@
 #include "ompl/base/OptimizationObjective.h"
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
-#include "ompl/geometric/planners/bitstar/datastructures/MultiEllipsoidSampler.h"
+#include "ompl/geometric/planners/informedtrees/bitstar/MultiEllipsoidSampler.h"
 
 namespace ompl
 {
