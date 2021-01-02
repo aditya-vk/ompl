@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2014, University of Toronto
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the University of Toronto nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2014, University of Toronto
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the University of Toronto nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Authors: Jonathan Gammell */
 
@@ -46,6 +46,7 @@
 #include <cmath>
 // For boost math constants
 #include <boost/math/constants/constants.hpp>
+#include <fstream>
 
 // OMPL:
 // For OMPL_INFORM et al.
@@ -71,10 +72,10 @@
 
 // Debug macros
 #ifdef BITSTAR_DEBUG
-    /** \brief A debug-only call to assert that the object is setup. */
-    #define ASSERT_SETUP this->assertSetup();
+/** \brief A debug-only call to assert that the object is setup. */
+#define ASSERT_SETUP this->assertSetup();
 #else
-    #define ASSERT_SETUP
+#define ASSERT_SETUP
 #endif  // BITSTAR_DEBUG
 
 namespace ompl
@@ -83,15 +84,14 @@ namespace ompl
     {
         /////////////////////////////////////////////////////////////////////////////////////////////
         // Public functions:
-        BITstar::ImplicitGraph::ImplicitGraph(NameFunc nameFunc)
-          : nameFunc_(std::move(nameFunc))
+        BITstar::ImplicitGraph::ImplicitGraph(NameFunc nameFunc) : nameFunc_(std::move(nameFunc))
         {
         }
 
         void BITstar::ImplicitGraph::setup(const ompl::base::SpaceInformationPtr &si,
-                                           const ompl::base::ProblemDefinitionPtr &pdef,
-                                           CostHelper *costHelper, SearchQueue *searchQueue,
-                                           const ompl::base::Planner *plannerPtr, ompl::base::PlannerInputStates &pis)
+                                           const ompl::base::ProblemDefinitionPtr &pdef, CostHelper *costHelper,
+                                           SearchQueue *searchQueue, const ompl::base::Planner *plannerPtr,
+                                           ompl::base::PlannerInputStates &pis)
         {
             // Store that I am setup so that any debug-level tests will pass. This requires assuring that this function
             // is ordered properly.
@@ -120,10 +120,7 @@ namespace ompl
 
             // Configure:
             NearestNeighbors<VertexPtr>::DistanceFunction distfun(
-                [this](const VertexConstPtr &a, const VertexConstPtr &b)
-                {
-                    return distanceFunction(a, b);
-                });
+                [this](const VertexConstPtr &a, const VertexConstPtr &b) { return distanceFunction(a, b); });
             freeStateNN_->setDistanceFunction(distfun);
             vertexNN_->setDistanceFunction(distfun);
 
@@ -212,6 +209,7 @@ namespace ompl
             // Sampling
             rng_ = ompl::RNG();
             sampler_.reset();
+            localSampler_.reset();
 
             // Containers
             startVertices_.clear();
@@ -384,6 +382,7 @@ namespace ompl
 
         void BITstar::ImplicitGraph::hasSolution(const ompl::base::Cost &solnCost)
         {
+            hasSolutionIteration_++;
             ASSERT_SETUP
 
             // We have a solution!
@@ -395,6 +394,9 @@ namespace ompl
             // Clear the approximate solution
             closestDistToGoal_ = std::numeric_limits<double>::infinity();
             closestVertexToGoal_.reset();
+
+            // Log the current best cost and the samples.
+            generateSamplesCostLog();
         }
 
         void BITstar::ImplicitGraph::updateStartAndGoalStates(ompl::base::PlannerInputStates &pis,
@@ -446,11 +448,10 @@ namespace ompl
             } while (pis.haveMoreGoalStates());
 
             /*
-            And then do the same for starts. We do this last as the starts are added to the queue, which uses a cost-to-go
-            heuristic in it's ordering, and for that we want all the goals updated.
-            As there is no way to wait for new *start* states, this loop can be cleaner
-            There is no need to rebuild the queue when we add start vertices, as the queue is ordered on current
-            cost-to-come, and adding a start doesn't change that.
+            And then do the same for starts. We do this last as the starts are added to the queue, which uses a
+            cost-to-go heuristic in it's ordering, and for that we want all the goals updated. As there is no way to
+            wait for new *start* states, this loop can be cleaner There is no need to rebuild the queue when we add
+            start vertices, as the queue is ordered on current cost-to-come, and adding a start doesn't change that.
             */
             while (pis.haveMoreStartStates())
             {
@@ -616,6 +617,8 @@ namespace ompl
                     // There is a start and goal, allocate
                     sampler_ = costHelpPtr_->getOptObj()->allocInformedStateSampler(
                         pdef_, std::numeric_limits<unsigned int>::max());
+                    localSampler_ =
+                        std::make_shared<MultiEllipsoidSampler>(pdef_, std::numeric_limits<unsigned int>::max());
                 }
                 // No else, this will get allocated when we get the updated start/goal.
 
@@ -697,7 +700,8 @@ namespace ompl
             // And there are no longer and recycled samples
             recycledSamples_.clear();
 
-            // We don't add actual *new* samples until the next time "nearestSamples" is called. This is to support JIT sampling.
+            // We don't add actual *new* samples until the next time "nearestSamples" is called. This is to support JIT
+            // sampling.
         }
 
         std::pair<unsigned int, unsigned int> BITstar::ImplicitGraph::prune(double prunedMeasure)
@@ -750,11 +754,12 @@ namespace ompl
 
             // Variable:
 #ifdef BITSTAR_DEBUG
-            // The use count of the passed shared pointer. Used in debug mode to assert that we took ownership of our own copy.
+            // The use count of the passed shared pointer. Used in debug mode to assert that we took ownership of our
+            // own copy.
             unsigned int initCount = oldSample.use_count();
 #endif  // BITSTAR_DEBUG
-            // A copy of the sample pointer to be removed so we can't delete it out from under ourselves (occurs when
-            // this function is given an element of the maintained set as the argument)
+        // A copy of the sample pointer to be removed so we can't delete it out from under ourselves (occurs when
+        // this function is given an element of the maintained set as the argument)
             VertexPtr sampleToDelete(oldSample);
 
 #ifdef BITSTAR_DEBUG
@@ -816,11 +821,12 @@ namespace ompl
 
             // Variable:
 #ifdef BITSTAR_DEBUG
-            // The use count of the passed shared pointer. Used in debug mode to assert that we took ownership of our own copy.
+            // The use count of the passed shared pointer. Used in debug mode to assert that we took ownership of our
+            // own copy.
             unsigned int initCount = oldVertex.use_count();
 #endif  // BITSTAR_DEBUG
-            // A copy of the vertex pointer to be removed so we can't delete it out from under ourselves (occurs when
-            // this function is given an element of the maintained set as the argument)
+        // A copy of the vertex pointer to be removed so we can't delete it out from under ourselves (occurs when
+        // this function is given an element of the maintained set as the argument)
             VertexPtr vertexToDelete(oldVertex);
 
 #ifdef BITSTAR_DEBUG
@@ -949,6 +955,14 @@ namespace ompl
                 }
 
                 // Actually generate the new samples
+                if (useLocalSampling_ && hasExactSolution_)
+                {
+                    findBestSubgoalVertex();
+                }
+                // Log the focus + cost + graph. Uncomment this if you want to visualize the
+                // build of a single instance.
+                // generateLog();
+                newSamplesIteration_++;
                 while (numSamples_ < totalReqdSamples)
                 {
                     // Variable
@@ -956,7 +970,18 @@ namespace ompl
                     auto newState = std::make_shared<Vertex>(si_, costHelpPtr_);
 
                     // Sample in the interval [costSampled_, costReqd):
-                    sampler_->sampleUniform(newState->state(), costSampled_, costReqd);
+                    if (useLocalSampling_ && hasExactSolution_)
+                    {
+                        // Find the local focus and sample from corresponding ellipsoids.
+                        // TODO(avk): For asymptotic guarantee select focus start/goal with some probability.
+                        localSampler_->sampleUniform(newState->state(), bestSubgoalVertex_->stateConst(),
+                                                     bestSubgoalVertex_->getCost().value(),
+                                                     maxCost_.value() - bestSubgoalVertex_->getCost().value());
+                    }
+                    else
+                    {
+                        sampler_->sampleUniform(newState->state(), costSampled_, costReqd);
+                    }
 
                     // If the state is collision free, add it to the set of free states
                     ++numStateCollisionChecks_;
@@ -973,6 +998,10 @@ namespace ompl
                     }
                     // No else
                 }
+                // Log the focus + cost + graph. Uncomment this if you want to visualize the
+                // build of a single instance.
+                // generateLog();
+                newSamplesIteration_++;
 
                 // Record the sampled cost space
                 costSampled_ = costReqd;
@@ -998,6 +1027,53 @@ namespace ompl
                 }
             }
             // No else, I do nothing.
+        }
+
+        void BITstar::ImplicitGraph::findBestSubgoalVertex()
+        {
+            if (static_cast<bool>(vertexNN_))
+            {
+                // The vertices in the graph
+                VertexPtrVector vertices;
+                vertexNN_->list(vertices);
+
+                // Process all the vertices.
+                for (const auto &vertex : vertices)
+                {
+                    // Only consider vertices in the closed list => g + h < maxCost.
+                    if (vertex->getCost().value() + costHelpPtr_->costToGoHeuristic(vertex).value() > maxCost_.value())
+                    {
+                        continue;
+                    }
+                    const double currentMetric = getMetricForSubgoal(vertex);
+                    if (currentMetric > metricForBestSubgoalVertex_)
+                    {
+                        // Better, update the best subgoal.
+                        bestSubgoalVertex_ = vertex;
+                        metricForBestSubgoalVertex_ = currentMetric;
+                    }
+                }
+            }
+        }
+
+        double BITstar::ImplicitGraph::getMetricForSubgoal(const VertexConstPtr &vertex)
+        {
+            // TODO(avk): Too many .value()s. Can we do better please?
+            const double num =
+                (vertex->getCost().value() - costHelpPtr_->costToComeHeuristic(vertex).value()) +
+                (maxCost_.value() - vertex->getCost().value() - costHelpPtr_->costToGoHeuristic(vertex).value());
+
+            const double dim = static_cast<double>(si_->getStateDimension());
+            const double a1 = vertex->getCost().value() / 2.0;
+            const double f1 = costHelpPtr_->costToComeHeuristic(vertex).value() / 2.0;
+            const double v1 = a1 * std::pow(std::sqrt(a1 * a1 - f1 * f1), dim - 1);
+
+            const double a2 = (maxCost_.value() - vertex->getCost().value()) / 2.0;
+            const double f2 = costHelpPtr_->costToGoHeuristic(vertex).value() / 2.0;
+            const double v2 = a2 * std::pow(std::sqrt(a2 * a2 - f2 * f2), dim - 1);
+            const double den = v1 + v2;
+
+            return (num / den);
         }
 
         std::pair<unsigned int, unsigned int> BITstar::ImplicitGraph::pruneStartsGoals()
@@ -1297,8 +1373,7 @@ namespace ompl
             // Calculate the term and return
             // RRT*
             return std::pow(2.0 * (1.0 + 1.0 / dimDbl) *
-                                  (approximationMeasure_ /
-                                    unitNBallMeasure(si_->getStateDimension())),
+                                (approximationMeasure_ / unitNBallMeasure(si_->getStateDimension())),
                             1.0 / dimDbl);
 
             // Relevant work on calculating the minimum radius:
@@ -1344,6 +1419,165 @@ namespace ompl
                 throw ompl::Exception("BITstar::ImplicitGraph was used before it was setup.");
             }
         }
+
+        void BITstar::ImplicitGraph::generateLog() const
+        {
+            // Save start, focus, goal, g(v), c(xi*).
+            std::vector<double> position;
+            std::ofstream logfile;
+
+            if (hasExactSolution_)
+            {
+                std::string focusDataFile = "focus_" + std::to_string(newSamplesIteration_) + ".txt";
+                logfile.open(focusDataFile, std::ios_base::app);
+
+                si_->getStateSpace()->copyToReals(position, startVertices_.front()->stateConst());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
+
+                si_->getStateSpace()->copyToReals(position, goalVertices_.front()->stateConst());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
+
+                // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal.
+                if (!useLocalSampling_)
+                {
+                    si_->getStateSpace()->copyToReals(position, startVertices_.front()->stateConst());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                    logfile << "0 0" << std::endl;
+                    logfile << maxCost_ << " 0" << std::endl;
+                }
+                else
+                {
+                    si_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->stateConst());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                    logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
+                    logfile << maxCost_ << " 0" << std::endl;
+                }
+
+                logfile.close();
+            }
+
+            // Save the graph.
+            std::string samplesDataFile = "samples_" + std::to_string(newSamplesIteration_) + ".txt";
+            logfile.open(samplesDataFile, std::ios_base::app);
+            if (static_cast<bool>(freeStateNN_))
+            {
+                VertexPtrVector samples;
+                freeStateNN_->list(samples);
+
+                for (const auto &freeSample : samples)
+                {
+                    si_->getStateSpace()->copyToReals(position, freeSample->stateConst());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                }
+            }
+            logfile.close();
+
+            if (static_cast<bool>(vertexNN_))
+            {
+                VertexPtrVector vertices;
+                vertexNN_->list(vertices);
+
+                if (vertices.size() > 1u)
+                {
+                    std::string verticesDataFile = "vertices_" + std::to_string(newSamplesIteration_) + ".txt";
+                    logfile.open(verticesDataFile, std::ios_base::app);
+
+                    for (const auto &vertex : vertices)
+                    {
+                        if (!vertex->isRoot())
+                        {
+                            si_->getStateSpace()->copyToReals(position, vertex->stateConst());
+                            for (const auto &p : position)
+                            {
+                                logfile << p << " ";
+                            }
+                            si_->getStateSpace()->copyToReals(position, vertex->getParentConst()->stateConst());
+                            for (const auto &p : position)
+                            {
+                                logfile << p << " ";
+                            }
+                            logfile << std::endl;
+                        }
+                    }
+                }
+            }
+            logfile.close();
+
+            // Save the path only if one exists.
+            if (hasExactSolution_)
+            {
+                std::string pathDataFile = "path_" + std::to_string(newSamplesIteration_) + ".txt";
+                logfile.open(pathDataFile, std::ios_base::app);
+                VertexConstPtr curVertex = goalVertices_.front();
+
+                curVertex = goalVertices_.front();
+                si_->getStateSpace()->copyToReals(position, curVertex->stateConst());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
+                for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParentConst())
+                {
+                    si_->getStateSpace()->copyToReals(position, curVertex->getParentConst()->stateConst());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                }
+            }
+            logfile.close();
+        }
+
+        void BITstar::ImplicitGraph::generateSamplesCostLog() const
+        {
+            // Save the cost and the total number of samples.
+            std::size_t graphSize = 0;
+            if (static_cast<bool>(vertexNN_))
+            {
+                VertexPtrVector vertices;
+                vertexNN_->list(vertices);
+                graphSize += vertices.size();
+            }
+            if (static_cast<bool>(freeStateNN_))
+            {
+                VertexPtrVector samples;
+                vertexNN_->list(samples);
+                graphSize += samples.size();
+            }
+            std::ofstream logfile;
+            assert(hasExactSolution_);
+            std::string solutionDataFile = "samplesAndCost_" + std::to_string(iterationNumber_) + ".txt";
+            logfile.open(solutionDataFile, std::ios_base::app);
+            logfile << graphSize << " " << maxCost_ << std::endl;
+        }
+
+        void BITstar::ImplicitGraph::setIterationNumber(int iteration)
+        {
+            iterationNumber_ = iteration;
+        }
+
         /////////////////////////////////////////////////////////////////////////////////////////////
 
         /////////////////////////////////////////////////////////////////////////////////////////////
@@ -1483,12 +1717,18 @@ namespace ompl
             return useKNearest_;
         }
 
+        void BITstar::ImplicitGraph::setUseLocalSampling(const bool use)
+        {
+            useLocalSampling_ = use;
+        }
+
         void BITstar::ImplicitGraph::setJustInTimeSampling(bool useJit)
         {
             // Assure that we're not trying to enable k-nearest with JIT sampling already on
             if (useKNearest_ && useJit)
             {
-                OMPL_WARN("%s (ImplicitGraph): Just-in-time sampling cannot be used with the k-nearest variant of "
+                OMPL_WARN("%s (ImplicitGraph): Just-in-time sampling cannot be used with the k-nearest variant "
+                          "of "
                           "BIT*, continuing to use regular sampling.",
                           nameFunc_().c_str());
             }
@@ -1500,7 +1740,8 @@ namespace ompl
                 // Announce limitation:
                 if (useJit)
                 {
-                    OMPL_INFORM("%s (ImplicitGraph): Just-in-time sampling is currently only implemented for problems "
+                    OMPL_INFORM("%s (ImplicitGraph): Just-in-time sampling is currently only implemented for "
+                                "problems "
                                 "seeking to minimize path-length.",
                                 nameFunc_().c_str());
                 }
@@ -1571,11 +1812,12 @@ namespace ompl
         template <template <typename T> class NN>
         void BITstar::ImplicitGraph::setNearestNeighbors()
         {
-            // Check if the problem is already setup, if so, the NN structs have data in them and you can't really
-            // change them:
+            // Check if the problem is already setup, if so, the NN structs have data in them and you can't
+            // really change them:
             if (isSetup_)
             {
-                OMPL_WARN("%s (ImplicitGraph): The nearest neighbour datastructures cannot be changed once the problem "
+                OMPL_WARN("%s (ImplicitGraph): The nearest neighbour datastructures cannot be changed once the "
+                          "problem "
                           "is setup. Continuing to use the existing containers.",
                           nameFunc_().c_str());
             }
@@ -1627,5 +1869,5 @@ namespace ompl
             return numStateCollisionChecks_;
         }
         /////////////////////////////////////////////////////////////////////////////////////////////
-    }  // geometric
-}  // ompl
+    }  // namespace geometric
+}  // namespace ompl

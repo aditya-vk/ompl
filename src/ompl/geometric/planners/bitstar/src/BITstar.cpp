@@ -367,6 +367,10 @@ namespace ompl
                     Planner::pis_.haveMoreStartStates() || Planner::pis_.haveMoreGoalStates()))
             {
                 this->iterate();
+                if (graphPtr_->getGraphSize() > maxGraphSize_)
+                {
+                    break;
+                }
             }
 
             // Announce
@@ -384,6 +388,8 @@ namespace ompl
             {
                 // Any solution
                 this->publishSolution();
+                // Uncomment this when you want to log the progress of an algorithm.
+                // graphPtr_->generateLog();
             }
             // No else, no solution to publish
 
@@ -902,6 +908,7 @@ namespace ompl
                 // Tell everyone else about it.
                 queuePtr_->hasSolution(bestCost_);
                 graphPtr_->hasSolution(bestCost_);
+                this->publishSolution();
 
                 // Stop the solution loop if enabled:
                 stopLoop_ = stopOnSolnChange_;
@@ -1101,6 +1108,22 @@ namespace ompl
         bool BITstar::getUseKNearest() const
         {
             return graphPtr_->getUseKNearest();
+        }
+
+        void BITstar::setUseLocalSampling(const bool use)
+        {
+            graphPtr_->setUseLocalSampling(use);
+            useLocalSampling_ = use;
+        }
+
+        bool BITstar::getUseLocalSampling() const
+        {
+            return useLocalSampling_;
+        }
+
+        void BITstar::setIterationNumber(int iteration)
+        {
+            graphPtr_->setIterationNumber(iteration);
         }
 
         void BITstar::setStrictQueueOrdering(bool beStrict)

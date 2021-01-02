@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2014, University of Toronto
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the University of Toronto nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2014, University of Toronto
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the University of Toronto nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Authors: Jonathan Gammell */
 
@@ -50,6 +50,7 @@
 // aware of the class BITstar. It has a forward declaration to me and the other helper classes but I will need to
 // include any I use in my .cpp (to avoid dependency loops).
 #include "ompl/geometric/planners/bitstar/BITstar.h"
+#include "ompl/geometric/planners/bitstar/datastructures/MultiEllipsoidSampler.h"
 
 namespace ompl
 {
@@ -75,8 +76,8 @@ namespace ompl
             /** \brief Setup the ImplicitGraph, must be called before use. Does not take a copy of the
              * PlannerInputStates, but checks it for starts/goals. */
             void setup(const ompl::base::SpaceInformationPtr &si, const ompl::base::ProblemDefinitionPtr &pdef,
-                       CostHelper *costHelper, SearchQueue *searchQueue,
-                       const ompl::base::Planner *plannerPtr, ompl::base::PlannerInputStates &pis);
+                       CostHelper *costHelper, SearchQueue *searchQueue, const ompl::base::Planner *plannerPtr,
+                       ompl::base::PlannerInputStates &pis);
 
             /** \brief Clear the graph to the state of construction. */
             void clear();
@@ -215,6 +216,8 @@ namespace ompl
             /** \brief Set a different nearest neighbours datastructure */
             template <template <typename T> class NN>
             void setNearestNeighbors();
+
+            void setUseLocalSampling(const bool use);
             //////////////////
 
             //////////////////
@@ -244,6 +247,19 @@ namespace ompl
             unsigned int numStateCollisionChecks() const;
             //////////////////
             ////////////////////////////////
+            ////////////////// DEBUG
+            void generateLog() const;
+            void generateSamplesCostLog() const;
+            int hasSolutionIteration_{0};
+            void setIterationNumber(int iteration);
+            std::size_t getGraphSize() const
+            {
+                VertexPtrVector vertices;
+                VertexPtrVector samples;
+                vertexNN_->list(vertices);
+                freeStateNN_->list(samples);
+                return vertices.size() + samples.size();
+            }
 
         private:
             ////////////////////////////////
@@ -255,6 +271,12 @@ namespace ompl
             /** \brief Iterates through all the vertices in the tree and finds the one that is closes to the goal. This
              * is only necessary to find approximate solutions and should otherwise not be called. */
             void findVertexClosestToGoal();
+
+            /** \brief Iterates through the search tree vertices to find the best vertex to define union of ellipsoids
+             * from start to this vertex, and this vertex to the goal. */
+            void findBestSubgoalVertex();
+            double getMetricForSubgoal(const VertexConstPtr &vertex);
+
             ////////////////////////////////
 
             ////////////////////////////////
@@ -332,6 +354,7 @@ namespace ompl
 
             /** \brief State sampler */
             ompl::base::InformedSamplerPtr sampler_{nullptr};
+            std::shared_ptr<MultiEllipsoidSampler> localSampler_{nullptr};
 
             /** \brief The start states of the problem as vertices. Constructed as a shared_ptr to give easy access to
              * helper classes */
@@ -395,12 +418,21 @@ namespace ompl
             /** \brief If we've found an exact solution yet */
             bool hasExactSolution_{false};
 
+            /** \brief Sampling iteration. */
+            std::size_t newSamplesIteration_{0u};
+
             /** \brief IF BEING TRACKED, the vertex closest to the goal (this represents an "approximate" solution) */
             VertexConstPtr closestVertexToGoal_{nullptr};
 
             /** \brief IF BEING TRACKED, the smallest distance of vertices in the tree to a goal (this represents
              * tolerance of an "approximate" solution) */
             double closestDistToGoal_{std::numeric_limits<double>::infinity()};
+
+            /** \brief The vertex considered to the best subgoal. */
+            VertexConstPtr bestSubgoalVertex_{nullptr};
+
+            /** \brief The metric corresponding to the best vertex. */
+            double metricForBestSubgoalVertex_{std::numeric_limits<double>::min()};
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
@@ -440,8 +472,12 @@ namespace ompl
 
             /** \brief Whether to consider approximate solutions (param) */
             bool findApprox_{false};
+
+            /** \brief Whether to use local sampling within union of ellipsoids. */
+            bool useLocalSampling_{false};
+            int iterationNumber_;
             ///////////////////////////////////////////////////////////////////
         };  // class: ImplicitGraph
-    }       // geometric
-}  // ompl
+    }       // namespace geometric
+}  // namespace ompl
 #endif  // OMPL_GEOMETRIC_PLANNERS_BITSTAR_DATASTRUCTURES_IMPLICITGRAPH_

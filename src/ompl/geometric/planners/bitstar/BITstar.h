@@ -289,7 +289,17 @@ namespace ompl
             /** \brief Set a different nearest neighbours datastructure */
             template <template <typename T> class NN>
             void setNearestNeighbors();
+
+            /** \brief Use local sampling */
+            void setUseLocalSampling(const bool use);
+            bool getUseLocalSampling() const;
             ///////////////////////////////////////
+
+            void setIterationNumber(int iteration);
+            void setMaxGraphSize(int maxSize)
+            {
+                maxGraphSize_ = maxSize;
+            }
 
         private:
             ///////////////////////////////////////////////////////////////////
@@ -487,6 +497,9 @@ namespace ompl
 
             /** \brief Whether to stop the planner as soon as the path changes (param) */
             bool stopOnSolnChange_{false};
+
+            /** \brief Whether to use local sampling within multiple ellipsoids. */
+            bool useLocalSampling_{false};
             ///////////////////////////////////////////////////////////////////
 
             ///////////////////////////////////////////////////////////////////
@@ -494,6 +507,7 @@ namespace ompl
             std::chrono::time_point<std::chrono::system_clock> mStartTime;
             mutable std::vector<std::vector<double>> costTimeEvals;
             double mLength{0};
+            int maxGraphSize_;
         };  // class: BITstar
     }       // namespace geometric
 }  // namespace ompl
