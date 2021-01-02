@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(ompl VERSION 1.5.0 LANGUAGES CXX)
+project(ompl VERSION 1.5.1 LANGUAGES CXX)
 set(OMPL_ABI_VERSION 16)
 
 # set the default build type
@@ -47,7 +47,8 @@ add_definitions(-DBOOST_MATH_NO_LONG_DOUBLE_MATH_FUNCTIONS)
 set_package_properties(Boost PROPERTIES
     URL "https://www.boost.org"
     PURPOSE "Used throughout OMPL for data serialization, graphs, etc.")
-set(Boost_USE_MULTITHREADED TRUE)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_NO_BOOST_CMAKE ON)
 find_package(Boost 1.58 QUIET REQUIRED COMPONENTS serialization filesystem system program_options)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -149,7 +150,7 @@ set_package_properties(spot PROPERTIES
     URL "http://spot.lrde.epita.fr"
     PURPOSE "Used for constructing finite automata from LTL formulae.")
 find_package(spot)
-if (SPOT_FOUND)
+if (spot_FOUND)
     set(OMPL_HAVE_SPOT 1)
     include_directories("${SPOT_INCLUDE_DIRS}")
     link_directories(${SPOT_LIBRARY_DIRS})
@@ -243,7 +244,12 @@ if (OMPL_REGISTRATION)
 endif()
 
 # install catkin package.xml (needed for ROS installation)
-install(FILES package.xml DESTINATION "share/ompl")
+install(FILES package.xml
+    DESTINATION share/${PROJECT_NAME})
+
+# Allows Colcon to find non-Ament packages when using workspace underlays
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/share/ament_index/resource_index/packages/${PROJECT_NAME} "")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/ament_index/resource_index/packages/${PROJECT_NAME} DESTINATION share/ament_index/resource_index/packages)
 
 set_package_properties(PkgConfig PROPERTIES
     URL "https://www.freedesktop.org/wiki/Software/pkg-config/"
