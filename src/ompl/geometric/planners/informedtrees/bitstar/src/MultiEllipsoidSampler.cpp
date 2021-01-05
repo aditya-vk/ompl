@@ -1,4 +1,4 @@
-#include "ompl/geometric/planners/bitstar/datastructures/MultiEllipsoidSampler.h"
+#include "ompl/geometric/planners/informedtrees/bitstar/MultiEllipsoidSampler.h"
 
 #include <ompl/base/OptimizationObjective.h>
 #include <ompl/base/StateSpace.h>

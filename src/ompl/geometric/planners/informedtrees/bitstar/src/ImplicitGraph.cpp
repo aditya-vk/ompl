@@ -1056,51 +1056,59 @@ namespace ompl
 
         void BITstar::ImplicitGraph::findBestSubgoalVertex()
         {
-            //     if (static_cast<bool>(vertexNN_))
-            //     {
-            //         // The vertices in the graph
-            //         VertexPtrVector vertices;
-            //         vertexNN_->list(vertices);
+            // The vertices in the graph
+            VertexPtrVector vertices;
+            samples_->list(vertices);
 
-            //         // Process all the vertices.
-            //         for (const auto &vertex : vertices)
-            //         {
-            //             // Only consider vertices in the closed list => g + h < maxCost.
-            //             if (vertex->getCost().value() + costHelpPtr_->costToGoHeuristic(vertex).value() >
-            //             solutionCost_.value())
-            //             {
-            //                 continue;
-            //             }
-            //             const double currentMetric = getMetricForSubgoal(vertex);
-            //             if (currentMetric > metricForBestSubgoalVertex_)
-            //             {
-            //                 // Better, update the best subgoal.
-            //                 bestSubgoalVertex_ = vertex;
-            //                 metricForBestSubgoalVertex_ = currentMetric;
-            //             }
-            //         }
-            //     }
+            // Process all the vertices.
+            for (const auto &vertex : vertices)
+            {
+                // TODO(avk): Is there a datastructure holding the vertices instead?
+                if (vertex->isInTree())
+                {
+                    // Only consider vertices in the closed list => g + h < maxCost.
+                    if (vertex->getCost().value() + costHelpPtr_->costToGoHeuristic(vertex).value() >=
+                        solutionCost_.value())
+                    {
+                        continue;
+                    }
+                    const double currentMetric = getMetricForSubgoal(vertex);
+                    if (currentMetric > metricForBestSubgoalVertex_)
+                    {
+                        // Better, update the best subgoal.
+                        bestSubgoalVertex_ = vertex;
+                        metricForBestSubgoalVertex_ = currentMetric;
+                    }
+                }
+            }
         }
 
         double BITstar::ImplicitGraph::getMetricForSubgoal(const VertexConstPtr &vertex)
         {
-            //     // TODO(avk): Too many .value()s. Can we do better please?
-            //     const double num =
-            //         (vertex->getCost().value() - costHelpPtr_->costToComeHeuristic(vertex).value()) +
-            //         (solutionCost_.value() - vertex->getCost().value() -
-            //         costHelpPtr_->costToGoHeuristic(vertex).value());
+            // TODO(avk): Too many .value()s. Can we do better please?
+            assert(vertex->getCost().value() >= costHelpPtr_->costToComeHeuristic(vertex).value());
+            const double bestDropCostToCome =
+                vertex->getCost().value() - costHelpPtr_->costToComeHeuristic(vertex).value();
+            const double bestDropCostToGo =
+                (solutionCost_.value() - vertex->getCost().value() - costHelpPtr_->costToGoHeuristic(vertex).value());
+            assert(bestDropCostToGo > 0);
 
-            //     const double dim = static_cast<double>(si_->getStateDimension());
-            //     const double a1 = vertex->getCost().value() / 2.0;
-            //     const double f1 = costHelpPtr_->costToComeHeuristic(vertex).value() / 2.0;
-            //     const double v1 = a1 * std::pow(std::sqrt(a1 * a1 - f1 * f1), dim - 1);
+            const double num = bestDropCostToCome + bestDropCostToGo;
 
-            //     const double a2 = (solutionCost_.value() - vertex->getCost().value()) / 2.0;
-            //     const double f2 = costHelpPtr_->costToGoHeuristic(vertex).value() / 2.0;
-            //     const double v2 = a2 * std::pow(std::sqrt(a2 * a2 - f2 * f2), dim - 1);
-            //     const double den = v1 + v2;
+            const double dim = static_cast<double>(spaceInformation_->getStateDimension());
+            const double a1 = vertex->getCost().value() / 2.0;
+            const double f1 = costHelpPtr_->costToComeHeuristic(vertex).value() / 2.0;
+            assert(a1 >= f1);
+            const double v1 = a1 * std::pow(std::sqrt(a1 * a1 - f1 * f1), dim - 1);
 
-            //     return (num / den);
+            const double a2 = (solutionCost_.value() - vertex->getCost().value()) / 2.0;
+            const double f2 = costHelpPtr_->costToGoHeuristic(vertex).value() / 2.0;
+            assert(a2 >= f2);
+            const double v2 = a2 * std::pow(std::sqrt(a2 * a2 - f2 * f2), dim - 1);
+            const double den = v1 + v2;
+            // TODO(avk): What if v1 + v2 is zero.
+
+            return (num / den);
         }
 
         std::pair<unsigned int, unsigned int> BITstar::ImplicitGraph::pruneStartAndGoalVertices()
@@ -1486,21 +1494,21 @@ namespace ompl
             // See Theorem 34 in Karaman & Frazzoli IJRR 2011
             return 2.0 * std::pow((1.0 + 1.0 / dimDbl) *
                                   (approximationMeasure_ /
-                                    unitNBallMeasure(si_->getStateDimension())),
+                                    unitNBallMeasure(spaceInformation_->getStateDimension())),
                                   1.0 / dimDbl);
 
             // FMT* radius (R2: smallest, R3: equiv to RRT*, Higher d: middle).
             // See Theorem 4.1 in Janson et al. IJRR 2015
             return 2.0 * std::pow((1.0 / dimDbl) *
                                   (approximationMeasure_ /
-                                    unitNBallMeasure(si_->getStateDimension())),
+                                    unitNBallMeasure(spaceInformation_->getStateDimension())),
                                    1.0 / dimDbl);
 
             // RRT* radius (smallest for unit-volume problems above R3).
             // See Theorem 38 in Karaman & Frazzoli IJRR 2011
             return std::pow(2.0 * (1.0 + 1.0 / dimDbl) *
                                   (approximationMeasure_ /
-                                    unitNBallMeasure(si_->getStateDimension())),
+                                    unitNBallMeasure(spaceInformation_->getStateDimension())),
                             1.0 / dimDbl);
             */
         }
@@ -1534,14 +1542,14 @@ namespace ompl
             //         std::string focusDataFile = "focus_" + std::to_string(newSamplesIteration_) + ".txt";
             //         logfile.open(focusDataFile, std::ios_base::app);
 
-            //         si_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
+            //         spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
             //         for (const auto &p : position)
             //         {
             //             logfile << p << " ";
             //         }
             //         logfile << std::endl;
 
-            //         si_->getStateSpace()->copyToReals(position, goalVertices_.front()->state());
+            //         spaceInformation_->getStateSpace()->copyToReals(position, goalVertices_.front()->state());
             //         for (const auto &p : position)
             //         {
             //             logfile << p << " ";
@@ -1551,7 +1559,7 @@ namespace ompl
             //         // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal.
             //         if (!useLocalSampling_)
             //         {
-            //             si_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
+            //             spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
             //             for (const auto &p : position)
             //             {
             //                 logfile << p << " ";
@@ -1562,7 +1570,7 @@ namespace ompl
             //         }
             //         else
             //         {
-            //             si_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
+            //             spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
             //             for (const auto &p : position)
             //             {
             //                 logfile << p << " ";
@@ -1585,7 +1593,7 @@ namespace ompl
 
             //         for (const auto &freeSample : samples)
             //         {
-            //             si_->getStateSpace()->copyToReals(position, freeSample->state());
+            //             spaceInformation_->getStateSpace()->copyToReals(position, freeSample->state());
             //             for (const auto &p : position)
             //             {
             //                 logfile << p << " ";
@@ -1609,13 +1617,13 @@ namespace ompl
             //             {
             //                 if (!vertex->isRoot())
             //                 {
-            //                     si_->getStateSpace()->copyToReals(position, vertex->state());
+            //                     spaceInformation_->getStateSpace()->copyToReals(position, vertex->state());
             //                     for (const auto &p : position)
             //                     {
             //                         logfile << p << " ";
             //                     }
-            //                     si_->getStateSpace()->copyToReals(position, vertex->getParentConst()->state());
-            //                     for (const auto &p : position)
+            //                     spaceInformation_->getStateSpace()->copyToReals(position,
+            //                     vertex->getParentConst()->state()); for (const auto &p : position)
             //                     {
             //                         logfile << p << " ";
             //                     }
@@ -1634,7 +1642,7 @@ namespace ompl
             //         VertexConstPtr curVertex = goalVertices_.front();
 
             //         curVertex = goalVertices_.front();
-            //         si_->getStateSpace()->copyToReals(position, curVertex->state());
+            //         spaceInformation_->getStateSpace()->copyToReals(position, curVertex->state());
             //         for (const auto &p : position)
             //         {
             //             logfile << p << " ";
@@ -1643,8 +1651,8 @@ namespace ompl
             //         for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex =
             //         curVertex->getParentConst())
             //         {
-            //             si_->getStateSpace()->copyToReals(position, curVertex->getParentConst()->state());
-            //             for (const auto &p : position)
+            //             spaceInformation_->getStateSpace()->copyToReals(position,
+            //             curVertex->getParentConst()->state()); for (const auto &p : position)
             //             {
             //                 logfile << p << " ";
             //             }
