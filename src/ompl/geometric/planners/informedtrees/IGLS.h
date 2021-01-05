@@ -148,9 +148,6 @@ namespace ompl
             /** \brief Get whether a k-nearest search is being used.*/
             bool getUseKNearest() const;
 
-            // TODO(avk): Queue is always strictly ordered.
-            // IGLS has an equivalent setStrictQueueOrdering of edges.
-
             /** \brief Enable pruning of vertices/samples that CANNOT improve the current solution. When a vertex in the
              * graph is pruned, it's descendents are also pruned (if they also cannot improve the solution) or placed
              * back in the set of free samples (if they could improve the solution). This assures that a uniform density
@@ -168,10 +165,6 @@ namespace ompl
              * occur. */
             double getPruneThresholdFraction() const;
 
-            // TODO(avk): Rewiring of edges is never delayed.
-            // TODO(avk): Disabling just in time sampling.
-            // TODO(avk): Unconnected samples are not dropped without consideration.
-
             /** \brief Stop the planner each time a solution improvement is found. Useful
             for examining the intermediate solutions found by IGLS. */
             void setStopOnSolnImprovement(bool stopOnChange);
@@ -179,15 +172,11 @@ namespace ompl
             /** \brief Get whether IGLS stops each time a solution is found. */
             bool getStopOnSolnImprovement() const;
 
-            // TODO(avk): Only exact solutions are currently considered.
-
             /** \brief Set a different nearest neighbours datastructure. */
             template <template <typename T> class NN>
             void setNearestNeighbors();
 
         protected:
-            // TODO(avk): ABIT* settings are currently disabled.
-
             /** \brief Enable the cascading of rewirings. */
             // TODO(avk) Is this ABIT* specific?
             void enableCascadingRewirings(bool enable);
@@ -403,3 +392,15 @@ namespace ompl
 }  // namespace ompl
 
 #endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_
+
+/** Notes:
+ *
+ * 1.Queue is always strictly ordered.
+ *      [BIT* has a setStrictQueueOrdering of edges.]
+ * 2. ABIT* settings are currently disabled.
+ * 3. Rewiring of edges is never delayed.
+ * 4. Disabling just in time sampling.
+ * 5. Unconnected samples are not dropped without consideration.
+ * 6. Only exact solutions are currently considered.
+ *
+ * */

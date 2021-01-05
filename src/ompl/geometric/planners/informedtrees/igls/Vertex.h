@@ -159,8 +159,16 @@ namespace ompl
             void markUnpruned();
 
             // ---
-            // Edge queue lookups.
+            // Vertex queue lookups.
             // ---
+            /** \brief Sets the iterator in the queue that corresponds to this vertex. */
+            void setVertexQueueLookup(const SearchQueue::VertexQueueElemPtr &element);
+
+            /** \brief Returns the iterator in the queue corresponding to this vertex. */
+            SearchQueue::VertexQueueElemPtr getVertexQueueLookup() const;
+
+            // Clear a vertex's search queue iterator.
+            void clearVertexQueueLookup();
 
         private:
             // ---
@@ -213,6 +221,9 @@ namespace ompl
             /** \brief The child states as weak pointers, such that the ownership loop is broken and a state can be
              * deleted once it's children are. */
             std::vector<VertexWeakPtr> children_;
+
+            /** \brief A pointer to the position in the search queue. */
+            SearchQueue::VertexQueueElemPtr vertexQueueLookup_;
 
             /** \brief A collection of potential child vertex ids that are blacklisted for edges (due to a collision).
              */

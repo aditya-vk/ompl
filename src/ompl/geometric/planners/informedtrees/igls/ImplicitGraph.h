@@ -51,8 +51,7 @@ namespace ompl
             /** \brief Gets whether the graph contains a goal or not. */
             bool hasAGoal() const;
 
-            // TODO(avk): Not supporting multiple start-goals. Replaced vector
-            // accessors with point returns.
+            /** \brief Returns the start and goal vertices. */
             VertexPtr getStartVertex() const;
             VertexPtr getGoalVertex() const;
 
@@ -76,8 +75,6 @@ namespace ompl
 
             /** \brief Adds the graph to the given PlannerData struct. */
             void getGraphAsPlannerData(ompl::base::PlannerData &data) const;
-
-            // TODO(avk): Not supporting approximate solutions, so closestVertex unnecessary.
 
             /** \brief Get the k of this k-nearest RGG. */
             unsigned int getConnectivityK() const;
@@ -128,7 +125,6 @@ namespace ompl
              * are used and another iteration of search is run unless recycleSamples_ is empty in which
              * case a new batch of samples is used.
              */
-            // TODO(avk): Why do we need recycle samples?
             void recycleSample(const VertexPtr &sample);
 
             /** \brief Add a vertex to the tree, optionally moving it from the set of unconnected samples. */
@@ -160,9 +156,6 @@ namespace ompl
 
             /** \brief Get whether a k-nearest search is being used.*/
             bool getUseKNearest() const;
-
-            // TODO(avk): JIT not supported for now.
-            // TODO(avk): Unconnected samples are not dropped without consideration.
 
             /** \brief Set whether samples that are provably not beneficial should be kept around. */
             void setPruning(bool usePruning);
@@ -314,7 +307,6 @@ namespace ompl
             VertexPtrNNPtr samples_{nullptr};
 
             /** \brief A copy of the vertices recycled into samples during the most recently added batch. */
-            // TODO(avk): Again, what exactly are these?
             VertexPtrVector recycledSamples_;
 
             /** \brief The number of samples in this batch. */
@@ -393,3 +385,12 @@ namespace ompl
 }  // namespace ompl
 
 #endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_IMPLICITGRAPH_
+
+/** Notes:
+ *
+ * 1.JIT not supported for now.
+ * 2.Unconnected samples are not dropped without consideration.
+ * 3.Not supporting multiple start-goals.
+ * 4.Not supporting approximate solutions, so closestVertex unnecessary.
+ *
+ * */

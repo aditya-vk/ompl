@@ -88,18 +88,20 @@ namespace ompl
         {
             ASSERT_SETUP
 
-            // TODO(avk):
             // If we already have the vertex in the queue, we need to update its value.
-            // VertexQueueElemPtr updateVertex = nullptr;
-            // updateVertex->data.first = this->createSortKey(edge);
-            // vertexQueue_.update(updateVertex);
-
-            // The iterator to the new edge in the queue:
-            VertexQueueElemPtr vertexElemPtr;
-            vertexElemPtr = vertexQueue_.insert(std::make_pair(this->createSortKey(vertex), vertex));
-
-            // TODO(avk): Let the vertex know its position in the search queue.
-            // vertex->setVertexQueueLookup(vertexElemPtr);
+            VertexQueueElemPtr updateVertex = nullptr;
+            if (updateVertex)
+            {
+                updateVertex->data.first = this->createSortKey(vertex);
+                vertexQueue_.update(updateVertex);
+            }
+            else
+            {
+                // The iterator to the new vertex in the queue:
+                VertexQueueElemPtr vertexElemPtr;
+                vertexElemPtr = vertexQueue_.insert(std::make_pair(this->createSortKey(vertex), vertex));
+                vertex->setVertexQueueLookup(vertexElemPtr);
+            }
         }
 
         IGLS::VertexPtr IGLS::SearchQueue::getFrontVertex()
@@ -157,8 +159,7 @@ namespace ompl
 #endif  // IGLS_DEBUG
 
             // Remove the vertex from the respective lookups.
-            // TODO(avk):
-            // frontVertex.first->removeFromEdgeQueueOutLookup(frontVertexQueueElement);
+            frontVertex->clearVertexQueueLookup();
 
             // Remove it from the queue.
             vertexQueue_.pop();
@@ -265,6 +266,21 @@ namespace ompl
                 this->enqueueVertices(vertex, neighbourSamples);
             }
             // No else
+        }
+
+        void IGLS::SearchQueue::removeVertexFromQueue(const VertexPtr &vertex)
+        {
+            if (!vertexQueue_.empty())
+            {
+                const auto &elementPtr = vertex->getVertexQueueLookup();
+                if (elementPtr)
+                {
+                    vertexQueue_.remove(elementPtr);
+                }
+                // Clear the lookup.
+                vertex->clearVertexQueueLookup();
+            }
+            // No else, nothing to remove from.
         }
 
         void IGLS::SearchQueue::update(const VertexQueueElemPtr elementPtr)

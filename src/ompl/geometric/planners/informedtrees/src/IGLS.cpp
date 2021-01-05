@@ -247,7 +247,6 @@ namespace ompl
             {
                 graphPtr_->updateStartAndGoalStates(Planner::pis_, ptc);
             }
-            // TODO(avk): Removed warnings if start/goal is absent.
 
             // Insert the start vertices into the queue.
             // TODO(avk): Why do we need to check for numIterations_ here?
@@ -257,14 +256,13 @@ namespace ompl
                 queuePtr_->insertNeighborVertices(graphPtr_->getStartVertex());
             }
 
-            /* Iterate as long as:
-              - We're allowed (ptc == false && stopLoop_ == false), AND
-              - We haven't found a good enough solution (costHelpPtr_->isSatisfied(bestCost) == false),
-              - AND
-                - There is a theoretically better solution (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(),
-              bestCost_) == true), OR
-                - TODO(avk): Right now I am assuming SSSP with a single goal.
-            */
+            /**
+             * Iterate as long as:
+             * We're allowed (ptc == false && stopLoop_ == false), AND
+             * costHelpPtr_->isSatisfied(bestCost) == false, AND
+             * There is a theoretically better solution:
+             * (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_) == true)
+             */
             while (!ptc && !stopLoop_ && !costHelpPtr_->isSatisfied(bestCost_) &&
                    (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_)))
             {
@@ -682,6 +680,7 @@ namespace ompl
             }
         }
 
+        // TODO(avk): I should not need this function since I have a vertex queue.
         void IGLS::addEdge(const VertexPtrPair &edge, const ompl::base::Cost &edgeCost)
         {
 #ifdef IGLS_DEBUG
@@ -714,7 +713,7 @@ namespace ompl
             }
             // Add the child to the queue.
             // TODO(avk): Need to add vertex to queue.
-            // queuePtr_->insertOutgoingEdges(edge.second);
+            queuePtr_->enqueueVertex(edge.second);
         }
 
         void IGLS::replaceParent(const VertexPtrPair &edge, const ompl::base::Cost &edgeCost)

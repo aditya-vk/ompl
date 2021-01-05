@@ -152,15 +152,12 @@ namespace ompl
             *approximationId_ = 1u;
 
             // The lookups and white-/blacklists of the start vertex.
-            // TODO(avk): Here vertex queue lookups are cleared for each vertex.
-            // startVertex_->clearEdgeQueueInLookup();
-            // startVertex_->clearEdgeQueueOutLookup();
+            startVertex_->clearVertexQueueLookup();
             startVertex_->clearBlacklist();
             startVertex_->clearWhitelist();
 
             // The lookups and white-/blacklists of the goal vertices.
-            // goalVertex_->clearEdgeQueueInLookup();
-            // goalVertex_->clearEdgeQueueOutLookup();
+            goalVertex_->clearVertexQueueLookup();
             goalVertex_->clearBlacklist();
             goalVertex_->clearWhitelist();
 
@@ -189,7 +186,6 @@ namespace ompl
             // Using RRTstar as an example, this order gives us the distance FROM the queried state TO the other
             // neighbours in the structure.
             // The distance function between two states
-            // TODO(avk): This is a weird ordering.
             return spaceInformation_->distance(b->state(), a->state());
         }
 
@@ -278,8 +274,7 @@ namespace ompl
             ompl::base::PlannerInputStates &inputStates, const base::PlannerTerminationCondition &terminationCondition)
         {
             ASSERT_SETUP
-            // TODO(avk): Simplifying this greatly since I am only considering
-            // SSSP with a single goal state.
+            // Simplifying this greatly since I am only considering SSSP with a single goal state.
             // Add the goal state first since we want to insert state into queue with its f-value computed.
             const ompl::base::State *newGoal = inputStates.nextGoal(terminationCondition);
             if (static_cast<bool>(newGoal))
@@ -340,10 +335,8 @@ namespace ompl
             // Increment the approximation id.
             ++(*approximationId_);
 
-            // We don't add actual *new* samples until the next time "nearestSamples" is called. This is to support JIT
-            // sampling.
-            // TODO(avk): WTF is this? Why not simplify life instead? Just sample a new batch whenever it is
-            // asked off you. -_-
+            // We don't add actual *new* samples until the next time "nearestSamples" is called.
+            // This is to support JIT sampling.
         }
 
         std::pair<unsigned int, unsigned int> IGLS::ImplicitGraph::prune(double prunedMeasure)
@@ -431,9 +424,8 @@ namespace ompl
             }
 #endif  // IGLS_DEBUG
 
-            // Remove all incoming edges from the search queue.
-            // TODO(avk): You will want a similar function that removes vertex from queue.
-            // queuePtr_->removeInEdgesConnectedToVertexFromQueue(sampleCopy);
+            // Remove vertex from queue.
+            queuePtr_->removeVertexFromQueue(sampleCopy);
 
             // Remove from the set of samples
             samples_->remove(sampleCopy);
@@ -558,15 +550,13 @@ namespace ompl
                 vertexCopy->removeChild(child);
                 child->removeParent(false);
 
-                // If the child has outgoing edges in the queue, they need to be removed.
-                // TODO(avk): You need a similar function that removes the child from the queue.
-                // queuePtr_->removeOutEdgesConnectedToVertexFromQueue(child);
+                // If the child is in the queue, remove that as well.
+                queuePtr_->removeVertexFromQueue(child);
             }
 
             // Remove any edges still in the queue.
-            // TODO(avk): You need a similar function to remove this vertex from the queue.
             // TODO(avk): What about the subsequent subtree, why only children???
-            // queuePtr_->removeAllEdgesConnectedToVertexFromQueue(vertexCopy);
+            queuePtr_->removeVertexFromQueue(vertexCopy);
 
             // Remove this vertex from the set of samples.
             samples_->remove(vertexCopy);
@@ -581,7 +571,6 @@ namespace ompl
             else
             {
                 // It is useful as sample and should be recycled.
-                // TODO(avk): Why would we prune a vertex while it is still useful?
                 recycleSample(vertexCopy);
                 return {1, 0};  // The vertex is only disconnected and recycled as sample.
             }

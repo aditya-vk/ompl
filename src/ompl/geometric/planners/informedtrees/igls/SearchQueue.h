@@ -34,8 +34,7 @@ namespace ompl
             // Aliases.
             // ---
 
-            /** \brief A triplet of costs, i.e., the vertex queue sorting key. */
-            // TODO(avk): What are the three values?
+            /** \brief [f(v), g(v)], the vertex queue sorting key. */
             using SortKey = std::array<ompl::base::Cost, 2u>;
 
             /** \brief The data stored in the vertex-queue binary heap. */
@@ -77,7 +76,11 @@ namespace ompl
             // Insertion.
             // ---
 
+            /** \brief Insert a vertex into the queue. */
+            void enqueueVertex(const VertexPtr &vertex);
+
             /** \brief Update the vertex queue by adding all the potential neighbors from the vertex.*/
+            /* This is equivalent to expanding the vertex. */
             void insertNeighborVertices(const VertexPtr &vertex);
 
             // ---
@@ -100,7 +103,8 @@ namespace ompl
             /** \brief Clears the queue. */
             void clear();
 
-            // TODO(avk): Disabled rebuilding the vertex queue.
+            /** \brief Removes the vertex from the queue. */
+            void removeVertexFromQueue(const VertexPtr &vertex);
 
             /** \brief Update the sort key of a particular vertex and its position in the queue. */
             void update(const VertexQueueElemPtr elementPtr);
@@ -141,9 +145,6 @@ namespace ompl
 
             /** \brief Attempt to add a vertex to the queue. Checks that the vertex meets the queueing condition. */
             void enqueueNeighborConditionally(const VertexPtr &parent, const VertexPtr &neighbor);
-
-            /** \brief Insert a vertex into the queue. */
-            void enqueueVertex(const VertexPtr &vertex);
 
             // ---
             // Sorting.
@@ -204,3 +205,9 @@ namespace ompl
     }       // namespace geometric
 }  // namespace ompl
 #endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_SEARCHQUEUE_
+
+/**
+ *
+ * 1.Disabled rebuilding the vertex queue.
+ *
+ * */

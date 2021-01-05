@@ -9,7 +9,7 @@
 
 // Debug macros.
 #ifdef IGLS_DEBUG
-// Debug setting. The id number of a vertex to track. Requires BITSTAR_DEBUG to be defined in BITstar.h
+// Debug setting. The id number of a vertex to track. Requires IGLS_DEBUG to be defined in BITstar.h
 #define TRACK_VERTEX_ID 0
 
 /** \brief A helper function to print out every function called on vertex "TRACK_VERTEX_ID" that changes it */
@@ -140,13 +140,13 @@ namespace ompl
         {
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (!this->isRoot() && !this->hasParent())
             {
                 throw ompl::Exception("Attempting to get the depth of a vertex that does not have a parent yet is not "
                                       "root.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             return depth_;
         }
@@ -155,7 +155,7 @@ namespace ompl
         {
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (!this->hasParent())
             {
                 if (this->isRoot())
@@ -167,7 +167,7 @@ namespace ompl
                     throw ompl::Exception("Attempting to access the parent of a vertex that does not have one.");
                 }
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             return parentPtr_;
         }
@@ -176,7 +176,7 @@ namespace ompl
         {
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (!this->hasParent())
             {
                 if (this->isRoot())
@@ -188,7 +188,7 @@ namespace ompl
                     throw ompl::Exception("Attempting to access the parent of a vertex that does not have one.");
                 }
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             return parentPtr_;
         }
@@ -198,7 +198,7 @@ namespace ompl
             PRINT_VERTEX_CHANGE
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             // Assert I can take a parent
             if (this->isRoot())
             {
@@ -208,7 +208,7 @@ namespace ompl
             {
                 throw ompl::Exception("Attempting to add a parent to a vertex that already has one.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Store the parent.
             parentPtr_ = newParent;
@@ -225,7 +225,7 @@ namespace ompl
             PRINT_VERTEX_CHANGE
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             // Assert I have a parent
             if (this->isRoot())
             {
@@ -236,7 +236,7 @@ namespace ompl
             {
                 throw ompl::Exception("Attempting to remove the parent of a vertex that does not have a parent.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Clear my parent
             parentPtr_.reset();
@@ -260,14 +260,14 @@ namespace ompl
 
             for (const auto &child : children_)
             {
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
                 // Check that the weak pointer hasn't expired
                 if (child.expired())
                 {
                     throw ompl::Exception("A (weak) pointer to a child was found to have expired while collecting the "
                                           "children of a vertex.");
                 }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
                 // Lock and push back
                 children->push_back(child.lock());
@@ -282,14 +282,14 @@ namespace ompl
 
             for (const auto &child : children_)
             {
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
                 // Check that the weak pointer hasn't expired
                 if (child.expired())
                 {
                     throw ompl::Exception("A (weak) pointer to a child was found to have expired while collecting the "
                                           "children of a vertex.");
                 }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
                 // Lock and push back
                 children->push_back(child.lock());
@@ -301,7 +301,7 @@ namespace ompl
             PRINT_VERTEX_CHANGE
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             // Assert that I am this child's parent
             if (child->isRoot())
             {
@@ -315,7 +315,7 @@ namespace ompl
             {
                 throw ompl::Exception("Attempted to add someone else's child as mine.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Push back the shared_ptr into the vector of weak_ptrs, this makes a weak_ptr copy
             children_.push_back(child);
@@ -328,7 +328,7 @@ namespace ompl
             PRINT_VERTEX_CHANGE
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             // Assert that I am this child's parent
             if (child->isRoot())
             {
@@ -342,7 +342,7 @@ namespace ompl
             {
                 throw ompl::Exception("Attempted to remove a child vertex from the wrong parent.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Variables
             // Whether the child has been found (and then deleted);
@@ -352,14 +352,14 @@ namespace ompl
             foundChild = false;
             for (auto it = children_.begin(); it != children_.end() && !foundChild; ++it)
             {
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
                 // Check that the weak pointer hasn't expired
                 if (it->expired())
                 {
                     throw ompl::Exception("A (weak) pointer to a child was found to have expired while removing a "
                                           "child from a vertex.");
                 }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
                 // Check if this is the child we're looking for
                 if (it->lock()->getId() == child->getId())
@@ -377,13 +377,13 @@ namespace ompl
             }
 
             // Leave the costs of the child out of date.
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (!foundChild)
             {
                 throw ompl::Exception("Attempting to remove a child vertex not present in the vector of children "
                                       "stored in the (supposed) parent vertex.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
         }
 
         void IGLS::Vertex::blacklistChild(const VertexConstPtr &vertex)
@@ -427,12 +427,12 @@ namespace ompl
         {
             ASSERT_NOT_PRUNED
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (!this->hasParent())
             {
                 throw ompl::Exception("Attempting to access the incoming-edge cost of a vertex without a parent.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             return edgeCost_;
         }
@@ -484,6 +484,24 @@ namespace ompl
             isPruned_ = false;
         }
 
+        void IGLS::Vertex::setVertexQueueLookup(const SearchQueue::VertexQueueElemPtr &elementPtr)
+        {
+            vertexQueueLookup_ = elementPtr;
+        }
+
+        IGLS::SearchQueue::VertexQueueElemPtr IGLS::Vertex::getVertexQueueLookup() const
+        {
+            return vertexQueueLookup_;
+        }
+
+        void IGLS::Vertex::clearVertexQueueLookup()
+        {
+            vertexQueueLookup_ = nullptr;
+
+            // TODO(avk): Update the counter?
+            // lookupApproximationId_ = *currentApproximationId_;
+        }
+
         void IGLS::Vertex::updateCostAndDepth(bool cascadeUpdates /*= true*/)
         {
             PRINT_VERTEX_CHANGE
@@ -503,7 +521,7 @@ namespace ompl
                 // Set the depth to 0u, getDepth will throw in this condition
                 depth_ = 0u;
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
                 // Assert that I have not been asked to cascade this bad data to my children:
                 if (this->hasChildren() && cascadeUpdates)
                 {
@@ -511,19 +529,22 @@ namespace ompl
                                           "not have a parent and is not root. This information would therefore be "
                                           "gibberish.");
                 }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
             }
             else
             {
                 // I have a parent, so my cost is my parent cost + my edge cost to the parent
                 cost_ = costHelpPtr_->combineCosts(parentPtr_->getCost(), edgeCost_);
 
+                // Update the position in the queue if already in the queue.
+                if (vertexQueueLookup_)
+                {
+                    queuePtr_->update(vertexQueueLookup_);
+                }
+
                 // I am one more than my parent's depth:
                 depth_ = (parentPtr_->getDepth() + 1u);
             }
-            // TODO(avk): Removed updates to edges in the queue. This might mean we
-            // have to check if this vertex or any of its children are in the queue
-            // and update their position in the queue. Look at SearchQueue::update(edge).
 
             // Am I updating my children?
             if (cascadeUpdates)
@@ -531,14 +552,14 @@ namespace ompl
                 // Now, iterate over my vector of children and tell each one to update its own damn cost:
                 for (auto &child : children_)
                 {
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
                     // Check that it hasn't expired
                     if (child.expired())
                     {
                         throw ompl::Exception("A (weak) pointer to a child has was found to have expired while "
                                               "updating the costs and depths of descendant vertices.");
                     }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
                     // Get a lock and tell the child to update:
                     child.lock()->updateCostAndDepth(true);
