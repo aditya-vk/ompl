@@ -1,6 +1,7 @@
 /* Authors: Aditya Mandalika */
 
 #include "ompl/geometric/planners/informedtrees/igls/Event.h"
+#include "ompl/geometric/planners/informedtrees/igls/ImplicitGraph.h"
 
 namespace ompl
 {
@@ -11,7 +12,7 @@ namespace ompl
             // Do nothing.
         }
 
-        IGLS::Event::isTriggered(VertexConstPtr &vertex)
+        bool IGLS::Event::isTriggered(VertexConstPtr &vertex) const
         {
             return (vertex == graphPtr_->getGoalVertex());
         }

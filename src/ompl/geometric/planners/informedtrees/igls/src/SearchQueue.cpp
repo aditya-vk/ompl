@@ -96,7 +96,7 @@ namespace ompl
 
             // The iterator to the new edge in the queue:
             VertexQueueElemPtr vertexElemPtr;
-            vertexElemPtr = vertexQueue_.insert(this->createSortKey(vertex), vertex);
+            vertexElemPtr = vertexQueue_.insert(std::make_pair(this->createSortKey(vertex), vertex));
 
             // TODO(avk): Let the vertex know its position in the search queue.
             // vertex->setVertexQueueLookup(vertexElemPtr);
@@ -106,12 +106,12 @@ namespace ompl
         {
             ASSERT_SETUP
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (vertexQueue_.empty())
             {
                 throw ompl::Exception("Attempted to access the first element in an empty SearchQueue.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Return the a copy of the front vertex.
             return vertexQueue_.top()->data.second;
@@ -121,12 +121,12 @@ namespace ompl
         {
             ASSERT_SETUP
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (vertexQueue_.empty())
             {
                 throw ompl::Exception("Attempted to access the first element in an empty SearchQueue.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Return a copy of the front value.
             return vertexQueue_.top()->data.first;
@@ -135,12 +135,12 @@ namespace ompl
         IGLS::VertexPtr IGLS::SearchQueue::popFrontVertex()
         {
             ASSERT_SETUP
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (vertexQueue_.empty())
             {
                 throw ompl::Exception("Attempted to pop an empty SearchQueue.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Increment the counter of popped vertices.
             ++numVerticesPopped_;
@@ -149,12 +149,12 @@ namespace ompl
             VertexQueueElemPtr frontVertexQueueElement = vertexQueue_.top();
             VertexPtr frontVertex = frontVertexQueueElement->data.second;
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (frontVertex.first->isPruned() || frontVertex.second->isPruned())
             {
                 throw ompl::Exception("The edge queue contains an edge with a pruned vertex.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Remove the vertex from the respective lookups.
             // TODO(avk):
@@ -198,12 +198,12 @@ namespace ompl
         {
             ASSERT_SETUP
 
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (state->isPruned())
             {
                 throw ompl::Exception("Asking whether pruned state can possibly improve current solution.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
 
             // Threshold should always be g_t(x_g)
 
@@ -248,12 +248,12 @@ namespace ompl
 
         void IGLS::SearchQueue::insertNeighborVertices(const VertexPtr &vertex)
         {
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (vertex->isPruned())
             {
                 throw ompl::Exception("Inserting outgoing edges of pruned vertex.");
             }
-#endif  // BITSTAR_DEBUG
+#endif  // IGLS_DEBUG
         // Should we expand this vertex?
             if (this->canPossiblyImproveCurrentSolution(vertex))
             {
@@ -281,7 +281,7 @@ namespace ompl
         // TODO(avk): Check this function thoroughly again.
         void IGLS::SearchQueue::enqueueVertices(const VertexPtr &parent, const VertexPtrVector &possibleChildren)
         {
-#ifdef BITSTAR_DEBUG
+#ifdef IGLS_DEBUG
             if (!parent->isInTree())
             {
                 auto msg = "Trying to enqueue edges from a parent (" + std::to_string(parent->getId()) +
@@ -294,7 +294,7 @@ namespace ompl
             parent->getChildren(&currentChildren);
             for (const auto &child : currentChildren)
             {
-                this->enqueueVertexConditionally(parent, child);
+                this->enqueueNeighborConditionally(parent, child);
             }
 
             // We need to store whether an outgoing edge is a rewiring.
@@ -306,7 +306,7 @@ namespace ompl
                 // If this sample is not connected to the search tree, just enqueue the edge if it's useful.
                 if (!child->isInTree())
                 {
-                    this->enqueueVertexConditionally(parent, child);
+                    this->enqueueNeighborConditionally(parent, child);
                 }
                 else  // If this sample is part of the tree, we need to be a little more careful.
                 {
@@ -325,7 +325,7 @@ namespace ompl
                                 if (parent->isRoot() || child->getId() != parent->getParent()->getId())
                                 {
                                     // The neighbour is not my parent, attempt to queue the edge.
-                                    this->enqueueVertexConditionally(parent, child);
+                                    this->enqueueNeighborConditionally(parent, child);
                                 }
                                 // No else, this vertex is my parent.
                             }
@@ -344,7 +344,7 @@ namespace ompl
         }
 
         // TODO(avk): This function needs thorough check since the event will be involved.
-        void IGLS::SearchQueue::enqueueVertexConditionally(const VertexPtr &parent, const VertexPtr &child)
+        void IGLS::SearchQueue::enqueueNeighborConditionally(const VertexPtr &parent, const VertexPtr &child)
         {
             // Don't enqueue the edge if it's blacklisted.
             if (parent->isBlacklistedAsChild(child))
@@ -364,9 +364,8 @@ namespace ompl
         IGLS::SearchQueue::SortKey IGLS::SearchQueue::createSortKey(const VertexPtr &vertex) const
         {
             // The sort key of a vertex u is [ g_t(u) + h^hat(v); g_t(u) ].
-            return {{costHelpPtr_->combineCosts(
-                         costHelpPtr_->getCost(vertex), costHelpPtr_->costToGoHeuristic(vertex))),
-                      vertex->getCost()}};
+            return {{costHelpPtr_->combineCosts(vertex->getCost(), costHelpPtr_->costToGoHeuristic(vertex)),
+                     vertex->getCost()}};
         }
 
         bool IGLS::SearchQueue::lexicographicalBetterThan(const std::array<ompl::base::Cost, 2> &lhs,

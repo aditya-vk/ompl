@@ -1,7 +1,7 @@
 /* Authors: Aditya Mandalika */
 
-// My definition:
 #include "ompl/geometric/planners/informedtrees/igls/Vertex.h"
+#include "ompl/geometric/planners/informedtrees/igls/HelperFunctions.h"
 #include <utility>
 #include "ompl/util/Exception.h"
 #include "ompl/geometric/planners/informedtrees/igls/IdGenerator.h"
@@ -71,7 +71,6 @@ namespace ompl
           , isRoot_(root)
           , edgeCost_(costHelpPtr_->infiniteCost())
           , cost_(costHelpPtr_->infiniteCost())
-          , costAtExpansion_(costHelpPtr_->infiniteCost())
           , currentSearchId_(queuePtr->getSearchId())
           , currentApproximationId_(approximationId)
         {
@@ -519,8 +518,8 @@ namespace ompl
                 // I have a parent, so my cost is my parent cost + my edge cost to the parent
                 cost_ = costHelpPtr_->combineCosts(parentPtr_->getCost(), edgeCost_);
 
-                7  // I am one more than my parent's depth:
-                    depth_ = (parentPtr_->getDepth() + 1u);
+                // I am one more than my parent's depth:
+                depth_ = (parentPtr_->getDepth() + 1u);
             }
             // TODO(avk): Removed updates to edges in the queue. This might mean we
             // have to check if this vertex or any of its children are in the queue

@@ -1,46 +1,12 @@
-/*********************************************************************
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2014, University of Toronto
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of the University of Toronto nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *********************************************************************/
+/* Authors: Aditya Mandalika */
 
-/* Authors: Jonathan Gammell, Marlin Strub */
-
-#ifndef OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_IMPLICITGRAPH_
-#define OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_IMPLICITGRAPH_
+#ifndef OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_IMPLICITGRAPH_
+#define OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_IMPLICITGRAPH_
 
 #include "ompl/base/Cost.h"
 #include "ompl/base/OptimizationObjective.h"
 #include "ompl/datastructures/NearestNeighbors.h"
-#include "ompl/geometric/planners/informedtrees/BITstar.h"
+#include "ompl/geometric/planners/informedtrees/IGLS.h"
 
 namespace ompl
 {
@@ -49,11 +15,10 @@ namespace ompl
         /** @anchor ImplicitGraph
         \par Short Description
         An edge-implicit representation of a random geometric graph.
-        TODO(Marlin): Separating the search tree from the RGG seems conceptually cleaner. Think about its implications.
         */
 
         /** \brief A conceptual representation of samples as an edge-implicit random geometric graph. */
-        class BITstar::ImplicitGraph
+        class IGLS::ImplicitGraph
         {
         public:
             // ---
@@ -86,17 +51,10 @@ namespace ompl
             /** \brief Gets whether the graph contains a goal or not. */
             bool hasAGoal() const;
 
-            /** \brief Returns a const-iterator to the front of the start-vertex vector. */
-            VertexPtrVector::const_iterator startVerticesBeginConst() const;
-
-            /** \brief Returns a const-iterator to the end of the start-vertex vector. */
-            VertexPtrVector::const_iterator startVerticesEndConst() const;
-
-            /** \brief Returns a const-iterator to the front of the goal-vertex vector. */
-            VertexPtrVector::const_iterator goalVerticesBeginConst() const;
-
-            /** \brief Returns a const-iterator to the end of the goal-vertex vector. */
-            VertexPtrVector::const_iterator goalVerticesEndConst() const;
+            // TODO(avk): Not supporting multiple start-goals. Replaced vector
+            // accessors with point returns.
+            VertexPtr getStartVertex() const;
+            VertexPtr getGoalVertex() const;
 
             /** \brief Get the minimum cost solution possible for this problem. */
             ompl::base::Cost minCost() const;
@@ -119,11 +77,7 @@ namespace ompl
             /** \brief Adds the graph to the given PlannerData struct. */
             void getGraphAsPlannerData(ompl::base::PlannerData &data) const;
 
-            /** \brief IF BEING TRACKED, returns the closest vertex in the tree to the goal. */
-            VertexConstPtr closestVertexToGoal() const;
-
-            /** \brief IF BEING TRACKED, returns the how close vertices in the tree are to the goal. */
-            double smallestDistanceToGoal() const;
+            // TODO(avk): Not supporting approximate solutions, so closestVertex unnecessary.
 
             /** \brief Get the k of this k-nearest RGG. */
             unsigned int getConnectivityK() const;
@@ -167,7 +121,14 @@ namespace ompl
             /** \brief Remove an unconnected sample.*/
             void pruneSample(const VertexPtr &sample);
 
-            /** \brief Insert a sample into the set for recycled samples.*/
+            /** \brief Insert a sample into the set for recycled samples.
+             * This is done to vertices in the current search tree that have g(v) + h(v, \vg) > c
+             * but h(\vs, v) + h(v, \vg) < c. Such vertices *upon pruning* are disconnected from tree
+             * and added to recycleSampels_. Next time a new batch is called upon, these recycled samples
+             * are used and another iteration of search is run unless recycleSamples_ is empty in which
+             * case a new batch of samples is used.
+             */
+            // TODO(avk): Why do we need recycle samples?
             void recycleSample(const VertexPtr &sample);
 
             /** \brief Add a vertex to the tree, optionally moving it from the set of unconnected samples. */
@@ -200,26 +161,11 @@ namespace ompl
             /** \brief Get whether a k-nearest search is being used.*/
             bool getUseKNearest() const;
 
-            /** Enable sampling "just-in-time", i.e., only when necessary for a nearest-neighbour search. */
-            void setJustInTimeSampling(bool useJit);
-
-            /** \brief Get whether we're using just-in-time sampling. */
-            bool getJustInTimeSampling() const;
-
-            /** \brief Set whether unconnected samples are dropped on pruning. */
-            void setDropSamplesOnPrune(bool dropSamples);
+            // TODO(avk): JIT not supported for now.
+            // TODO(avk): Unconnected samples are not dropped without consideration.
 
             /** \brief Set whether samples that are provably not beneficial should be kept around. */
             void setPruning(bool usePruning);
-
-            /** \brief Get whether unconnected samples are dropped on pruning. */
-            bool getDropSamplesOnPrune() const;
-
-            /** \brief Set whether to track approximate solutions during the search. */
-            void setTrackApproximateSolutions(bool findApproximate);
-
-            /** \brief Get whether approximate solutions are tracked during the search. */
-            bool getTrackApproximateSolutions() const;
 
             /** \brief Set the average number of allowed failed attempts when sampling. */
             void setAverageNumOfAllowedFailedAttemptsWhenSampling(std::size_t number);
@@ -280,18 +226,9 @@ namespace ompl
              * sampled. */
             void updateSamples(const VertexConstPtr &vertex);
 
-            /** \brief Iterates through all the vertices in the tree and finds the one that is closes to the goal. This
-             * is only necessary to find approximate solutions and should otherwise not be called. */
-            void updateVertexClosestToGoal();
-
             // ---
             // High-level primitives pruning the graph.
             // ---
-
-            /** \brief Prune any starts/goals that provably cannot provide a better solution than the current best
-             * solution. This is done via the prune conditions of the SearchQueue. Returns the number of vertices
-             * disconnected and the number of samples removed. */
-            std::pair<unsigned int, unsigned int> pruneStartAndGoalVertices();
 
             /** \brief Prune any samples that provably cannot provide a better solution than the current best solution.
              * Returns the number of samples removed. */
@@ -300,10 +237,6 @@ namespace ompl
             // ---
             // Low-level random geometric graph helper and calculations
             // ---
-
-            /** \brief Tests and updates whether the given vertex is closer to the goal than the known-closest vertex.
-             * This is only necessary to find approximate solutions and should otherwise not be called. */
-            void testClosestToGoal(const VertexConstPtr &vertex);
 
             /** \brief Calculate the max req'd cost to define a neighbourhood around a state. Currently only implemented
              * for path-length problems, for which the neighbourhood cost is the f-value of the vertex plus 2r. */
@@ -354,11 +287,11 @@ namespace ompl
             /** \brief The problem definition. */
             ompl::base::ProblemDefinitionPtr problemDefinition_{nullptr};
 
-            /** \brief A cost/heuristic helper class. As this is a copy of the version owned by BITstar.cpp it can be
+            /** \brief A cost/heuristic helper class. As this is a copy of the version owned by IGLS.cpp it can be
              * reset in a clear(). */
             CostHelper *costHelpPtr_{nullptr};
 
-            /** \brief The queue class. As this is a copy of the version owned by BITstar.cpp it can be reset in a
+            /** \brief The queue class. As this is a copy of the version owned by IGLS.cpp it can be reset in a
              * clear(). */
             SearchQueue *queuePtr_{nullptr};
 
@@ -368,19 +301,11 @@ namespace ompl
             /** \brief State sampler */
             ompl::base::InformedSamplerPtr sampler_{nullptr};
 
-            /** \brief The start states of the problem as vertices. Constructed as a shared_ptr to give easy access to
-             * helper classes. */
-            VertexPtrVector startVertices_;
+            /** \brief The start vertex of the problem. */
+            VertexPtr startVertex_;
 
-            /** \brief The goal states of the problem as vertices. Constructed as a shared_ptr to give easy access to
-             * helper classes. */
-            VertexPtrVector goalVertices_;
-
-            /** \brief Any start states of the problem that have been pruned. */
-            VertexPtrVector prunedStartVertices_;
-
-            /** \brief Any goal states of the problem that have been pruned. */
-            VertexPtrVector prunedGoalVertices_;
+            /** \brief The goal vertex of the problem. */
+            VertexPtr goalVertex_;
 
             /** \brief A copy of the new samples of the most recently added batch. */
             VertexPtrVector newSamples_;
@@ -389,6 +314,7 @@ namespace ompl
             VertexPtrNNPtr samples_{nullptr};
 
             /** \brief A copy of the vertices recycled into samples during the most recently added batch. */
+            // TODO(avk): Again, what exactly are these?
             VertexPtrVector recycledSamples_;
 
             /** \brief The number of samples in this batch. */
@@ -425,13 +351,6 @@ namespace ompl
             /** \brief If we've found an exact solution yet. */
             bool hasExactSolution_{false};
 
-            /** \brief If being tracked, the vertex closest to the goal (this represents an "approximate" solution). */
-            VertexConstPtr closestVertexToGoal_{nullptr};
-
-            /** \brief If being tracked, the smallest distance of vertices in the tree to a goal (this represents
-             * tolerance of an "approximate" solution). */
-            double closestDistanceToGoal_{std::numeric_limits<double>::infinity()};
-
             /** \brief The number of states generated through sampling. Accessible via numStatesGenerated. */
             unsigned int numSamples_{0u};
 
@@ -463,17 +382,8 @@ namespace ompl
             /** \brief Option to use k-nearest search for rewiring. */
             bool useKNearest_{true};
 
-            /** \brief Whether to use just-in-time sampling. */
-            bool useJustInTimeSampling_{false};
-
-            /** \brief Whether to refresh (i.e., forget) unconnected samples on pruning. */
-            bool dropSamplesOnPrune_{false};
-
             /** \brief Whether the graph is being pruned or not. */
             bool isPruningEnabled_{true};
-
-            /** \brief Whether to consider approximate solutions. */
-            bool findApprox_{false};
 
             /** \brief The average number of allowed failed attempts before giving up on a sample when sampling a new
              * batch. */
@@ -482,4 +392,4 @@ namespace ompl
     }       // namespace geometric
 }  // namespace ompl
 
-#endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_IMPLICITGRAPH_
+#endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_IMPLICITGRAPH_

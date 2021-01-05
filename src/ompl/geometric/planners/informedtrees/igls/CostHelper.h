@@ -1,59 +1,15 @@
-/*********************************************************************
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2014, University of Toronto
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of the University of Toronto nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *********************************************************************/
-
 /* Authors: Jonathan Gammell, Marlin Strub */
 
-#ifndef OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_COSTHELPER_
-#define OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_COSTHELPER_
+#ifndef OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_COSTHELPER_
+#define OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_COSTHELPER_
 
-// OMPL:
-// The cost class:
 #include "ompl/base/Cost.h"
-// The optimization objective class:
 #include "ompl/base/OptimizationObjective.h"
-// For exceptions:
 #include "ompl/util/Exception.h"
 
-// BIT*:
-// I am member class of the BITstar class (i.e., I am in it's namespace), so I need to include it's definition to be
-// aware of the class BITstar. It has a forward declaration to me and the other helper classes but I will need to
-// include any I use in my .cpp (to avoid dependency loops).
-#include "ompl/geometric/planners/informedtrees/BITstar.h"
-// The vertex class
-#include "ompl/geometric/planners/informedtrees/bitstar/Vertex.h"
-// The graph class
-#include "ompl/geometric/planners/informedtrees/bitstar/ImplicitGraph.h"
+#include "ompl/geometric/planners/informedtrees/IGLS.h"
+#include "ompl/geometric/planners/informedtrees/igls/Vertex.h"
+#include "ompl/geometric/planners/informedtrees/igls/ImplicitGraph.h"
 
 namespace ompl
 {
@@ -65,7 +21,7 @@ namespace ompl
         one place. Most of these functions are simply combinatorial pass-throughs to the OptimizationObjective. */
 
         /** \brief A helper class to handle the various heuristic functions in one place. */
-        class BITstar::CostHelper
+        class IGLS::CostHelper
         {
         public:
             ////////////////////////////////
@@ -162,21 +118,8 @@ namespace ompl
                     throw ompl::Exception("Computing the cost to come heuristic to a pruned vertex.");
                 }
 #endif  // BITSTAR_DEBUG
-        // Variable
-        // The current best cost to the state, initialize to infinity
-                ompl::base::Cost curBest = this->infiniteCost();
 
-                // Iterate over the vector of starts, finding the minimum estimated cost-to-come to the state
-                for (auto startIter = graphPtr_->startVerticesBeginConst();
-                     startIter != graphPtr_->startVerticesEndConst(); ++startIter)
-                {
-                    // Update the cost-to-come as the better of the best so far and the new one
-                    curBest =
-                        this->betterCost(curBest, this->motionCostHeuristic((*startIter)->state(), vertex->state()));
-                }
-
-                // Return
-                return curBest;
+                return this->motionCostHeuristic(graphPtr_->getStartVertex()->state(), vertex->state());
             };
 
             /** \brief Calculate a heuristic estimate of the cost of an edge between two Vertices */
@@ -188,21 +131,7 @@ namespace ompl
             /** \brief Calculate a heuristic estimate of the cost-to-go for a Vertex */
             inline ompl::base::Cost costToGoHeuristic(const VertexConstPtr &vertex) const
             {
-                // Variable
-                // The current best cost to a goal from the state, initialize to infinity
-                ompl::base::Cost curBest = this->infiniteCost();
-
-                // Iterate over the vector of goals, finding the minimum estimated cost-to-go from the state
-                for (auto goalIter = graphPtr_->goalVerticesBeginConst(); goalIter != graphPtr_->goalVerticesEndConst();
-                     ++goalIter)
-                {
-                    // Update the cost-to-go as the better of the best so far and the new one
-                    curBest =
-                        this->betterCost(curBest, this->motionCostHeuristic(vertex->state(), (*goalIter)->state()));
-                }
-
-                // Return
-                return curBest;
+                return this->motionCostHeuristic(vertex->state(), graphPtr_->getGoalVertex()->state());
             };
             //////////////////
 

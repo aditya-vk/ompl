@@ -247,4 +247,4 @@ namespace ompl
     }       // namespace geometric
 }  // namespace ompl
 
-#endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_VERTEX_
+#endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_VERTEX_

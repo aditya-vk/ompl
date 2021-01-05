@@ -9,7 +9,7 @@ namespace ompl
 {
     namespace geometric
     {
-        /** @anchor Event
+        /** @anchor Selector
         @par Short description
         A class to determine if the search need to pause for collision checking edges.
 
@@ -23,7 +23,7 @@ namespace ompl
             /** \brief Returns true if the vertex triggers the event.
              * Default behavior implements forward selector i.e. returns
              * unevaluated edge closest to the start */
-            VertexPtrPair edgeToEvaluate(const VertexConstPtrVector &path) const;
+            VertexPtrPair edgeToEvaluate(const VertexPtrVector &reversePath) const;
         };
     }  // namespace geometric
 }  // namespace ompl

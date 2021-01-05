@@ -19,7 +19,7 @@ namespace ompl
     namespace geometric
     {
         /** \brief Generalized Batch-Informed Lazy Search Trees */
-        class Blaze : public ompl::base::Planner
+        class IGLS : public ompl::base::Planner
         {
         public:
             // ---
@@ -81,10 +81,10 @@ namespace ompl
             using NameFunc = std::function<std::string()>;
 
             /** \brief Construct with a pointer to the space information and an optional name. */
-            Blaze(const base::SpaceInformationPtr &si, const std::string &name = "Blaze");
+            IGLS(const base::SpaceInformationPtr &si, const std::string &name = "IGLS");
 
             /** \brief Destruct using the default destructor. */
-            virtual ~Blaze() override = default;
+            virtual ~IGLS() override = default;
 
             /** \brief Setup the algorithm. */
             void setup() override;
@@ -103,7 +103,7 @@ namespace ompl
             // ---
 
             /** \brief Get the next vertex to expand helpful for some videos and debugging. */
-            const ompl::base::State *getNextStateToExpand();
+            const ompl::base::State *getNextVertexInQueue();
 
             /** \brief Get the value of the next vertex to be processed. */
             ompl::base::Cost getNextVertexValueInQueue();
@@ -170,18 +170,7 @@ namespace ompl
 
             // TODO(avk): Rewiring of edges is never delayed.
             // TODO(avk): Disabling just in time sampling.
-
-            /** @anchor gBITstarSetDropSamplesOnPrune
-             * \brief Drop \e all unconnected samples when pruning, regardless of
-             * their heuristic value. This provides a method for IGLS to remove samples that have not been connected to
-             * the graph and may be beneficial in problems where portions of the free space are unreachable (i.e.,
-             * disconnected). IGLS calculates the connection radius for each batch from the underlying uniform
-             * distribution of states. The resulting larger connection radius may be detrimental in areas where the
-             * graph is dense, but maintains the theoretical asymptotic optimality of the planner. */
-            void setDropSamplesOnPrune(bool dropSamples);
-
-            /** \brief Get whether unconnected samples are dropped on pruning. */
-            bool getDropSamplesOnPrune() const;
+            // TODO(avk): Unconnected samples are not dropped without consideration.
 
             /** \brief Stop the planner each time a solution improvement is found. Useful
             for examining the intermediate solutions found by IGLS. */

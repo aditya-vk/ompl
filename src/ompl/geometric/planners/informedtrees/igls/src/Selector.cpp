@@ -6,7 +6,11 @@ namespace ompl
 {
     namespace geometric
     {
-        VertexPtrPair IGLS::Selector::edgeToEvaluate(const VertexConstPtrVector &reversePath)
+        IGLS::Selector::Selector()
+        {
+            // Do nothing.
+        }
+        IGLS::VertexPtrPair IGLS::Selector::edgeToEvaluate(const VertexPtrVector &reversePath) const
         {
             // TODO(avk): Make a better assert similar to Gammell's.
             assert(reversePath.size() >= 2);

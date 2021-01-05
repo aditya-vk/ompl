@@ -253,7 +253,8 @@ namespace ompl
             // TODO(avk): Why do we need to check for numIterations_ here?
             if (numIterations_ == 0u)
             {
-                queuePtr_->insertStartVertices();
+                // TODO(avk): is this what you want to do, or do you want to just enqueue the vertex??
+                queuePtr_->insertNeighborVertices(graphPtr_->getStartVertex());
             }
 
             /* Iterate as long as:
@@ -265,7 +266,7 @@ namespace ompl
                 - TODO(avk): Right now I am assuming SSSP with a single goal.
             */
             while (!ptc && !stopLoop_ && !costHelpPtr_->isSatisfied(bestCost_) &&
-                   (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_))
+                   (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_)))
             {
                 this->iterate();
             }
@@ -325,8 +326,7 @@ namespace ompl
                 // An empty edge:
                 nextVertex = nullptr;
             }
-
-            return nextEdge;
+            return nextVertex;
         }
 
         ompl::base::Cost IGLS::getNextVertexValueInQueue()
@@ -371,137 +371,138 @@ namespace ompl
         // Protected functions:
         void IGLS::iterate()
         {
-            // Keep track of how many iterations we've performed.
-            ++numIterations_;
+            /**
+              // Keep track of how many iterations we've performed.
+              ++numIterations_;
 
-            // If the search is done or the queue is empty, we need to populate the queue.
-            if (isSearchDone_ || queuePtr_->isEmpty())
-            {
-                // Check whether we've exhausted the current approximation.
-                if (isFinalSearchOnBatch_ || !hasExactSolution_)
-                {
-                    // Prune the graph if enabled.
-                    if (isPruningEnabled_)
-                    {
-                        this->prune();
-                    }
+              // If the search is done or the queue is empty, we need to populate the queue.
+              if (isSearchDone_ || queuePtr_->isEmpty())
+              {
+                  // Check whether we've exhausted the current approximation.
+                  if (isFinalSearchOnBatch_ || !hasExactSolution_)
+                  {
+                      // Prune the graph if enabled.
+                      if (isPruningEnabled_)
+                      {
+                          this->prune();
+                      }
 
-                    // Add a new batch.
-                    this->newBatch();
+                      // Add a new batch.
+                      this->newBatch();
 
-                    // Set the inflation factor to an initial value.
-                    queuePtr_->setInflationFactor(initialInflationFactor_);
+                      // Set the inflation factor to an initial value.
+                      queuePtr_->setInflationFactor(initialInflationFactor_);
 
-                    // Clear the search queue.
-                    queuePtr_->clear();
+                      // Clear the search queue.
+                      queuePtr_->clear();
 
-                    // Restart the queue, adding the outgoing edges of the start vertices to the queue.
-                    queuePtr_->insertOutgoingEdgesOfStartVertices();
+                      // Restart the queue, adding the outgoing edges of the start vertices to the queue.
+                      queuePtr_->insertOutgoingEdgesOfStartVertices();
 
-                    // Set flag to false.
-                    isFinalSearchOnBatch_ = false;
+                      // Set flag to false.
+                      isFinalSearchOnBatch_ = false;
 
-                    // Set the new truncation factor.
-                    truncationFactor_ =
-                        1.0 + truncationScalingParameter_ /
-                                  (static_cast<float>(graphPtr_->numVertices() + graphPtr_->numSamples()));
-                }
-                else
-                {
-                    // Exhaust the current approximation by performing an uninflated search.
-                    queuePtr_->setInflationFactor(
-                        1.0 + inflationScalingParameter_ /
-                                  (static_cast<float>(graphPtr_->numVertices() + graphPtr_->numSamples())));
-                    queuePtr_->rebuildEdgeQueue();
-                    queuePtr_->insertOutgoingEdgesOfInconsistentVertices();
-                    queuePtr_->clearInconsistentSet();
-                    isFinalSearchOnBatch_ = true;
-                }
+                      // Set the new truncation factor.
+                      truncationFactor_ =
+                          1.0 + truncationScalingParameter_ /
+                                    (static_cast<float>(graphPtr_->numVertices() + graphPtr_->numSamples()));
+                  }
+                  else
+                  {
+                      // Exhaust the current approximation by performing an uninflated search.
+                      queuePtr_->setInflationFactor(
+                          1.0 + inflationScalingParameter_ /
+                                    (static_cast<float>(graphPtr_->numVertices() + graphPtr_->numSamples())));
+                      queuePtr_->rebuildEdgeQueue();
+                      queuePtr_->insertOutgoingEdgesOfInconsistentVertices();
+                      queuePtr_->clearInconsistentSet();
+                      isFinalSearchOnBatch_ = true;
+                  }
 
-                isSearchDone_ = false;
-            }
-            else
-            {
-                // Get the most promising edge.
-                VertexPtrPair edge = queuePtr_->popFrontEdge();
+                  isSearchDone_ = false;
+              }
+              else
+              {
+                  // Get the most promising edge.
+                  VertexPtrPair edge = queuePtr_->popFrontEdge();
 
-                // If this edge is already part of the search tree it's a freebie.
-                if (edge.second->hasParent() && edge.second->getParent()->getId() == edge.first->getId())
-                {
-                    if (!edge.first->isExpandedOnCurrentSearch())
-                    {
-                        edge.first->registerExpansion();
-                    }
-                    queuePtr_->insertOutgoingEdges(edge.second);
-                }
-                // In the best case, can this edge improve our solution given the current graph?
-                // g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)?
-                else if (costHelpPtr_->isCostBetterThan(
-                             costHelpPtr_->inflateCost(costHelpPtr_->currentHeuristicEdge(edge), truncationFactor_),
-                             bestCost_))
-                {
-                    // What about improving the current graph?
-                    // g_t(v) + c_hat(v,x)  < g_t(x)?
-                    if (costHelpPtr_->isCostBetterThan(costHelpPtr_->currentHeuristicToTarget(edge),
-                                                       edge.second->getCost()))
-                    {
-                        // Ok, so it *could* be a useful edge. Do the work of calculating its cost for real
+                  // If this edge is already part of the search tree it's a freebie.
+                  if (edge.second->hasParent() && edge.second->getParent()->getId() == edge.first->getId())
+                  {
+                      if (!edge.first->isExpandedOnCurrentSearch())
+                      {
+                          edge.first->registerExpansion();
+                      }
+                      queuePtr_->insertOutgoingEdges(edge.second);
+                  }
+                  // In the best case, can this edge improve our solution given the current graph?
+                  // g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)?
+                  else if (costHelpPtr_->isCostBetterThan(
+                               costHelpPtr_->inflateCost(costHelpPtr_->currentHeuristicEdge(edge), truncationFactor_),
+                               bestCost_))
+                  {
+                      // What about improving the current graph?
+                      // g_t(v) + c_hat(v,x)  < g_t(x)?
+                      if (costHelpPtr_->isCostBetterThan(costHelpPtr_->currentHeuristicToTarget(edge),
+                                                         edge.second->getCost()))
+                      {
+                          // Ok, so it *could* be a useful edge. Do the work of calculating its cost for real
 
-                        // Get the true cost of the edge
-                        ompl::base::Cost trueEdgeCost = costHelpPtr_->trueEdgeCost(edge);
+                          // Get the true cost of the edge
+                          ompl::base::Cost trueEdgeCost = costHelpPtr_->trueEdgeCost(edge);
 
-                        // Can this actual edge ever improve our solution?
-                        // g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)?
-                        if (costHelpPtr_->isCostBetterThan(
-                                costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(edge.first), trueEdgeCost,
-                                                           costHelpPtr_->costToGoHeuristic(edge.second)),
-                                bestCost_))
-                        {
-                            // Does this edge have a collision?
-                            if (this->checkEdge(edge))
-                            {
-                                // Remember that this edge has passed the collision checks.
-                                this->whitelistEdge(edge);
+                          // Can this actual edge ever improve our solution?
+                          // g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)?
+                          if (costHelpPtr_->isCostBetterThan(
+                                  costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(edge.first),
+              trueEdgeCost, costHelpPtr_->costToGoHeuristic(edge.second)), bestCost_))
+                          {
+                              // Does this edge have a collision?
+                              if (this->checkEdge(edge))
+                              {
+                                  // Remember that this edge has passed the collision checks.
+                                  this->whitelistEdge(edge);
 
-                                // Does the current edge improve our graph?
-                                // g_t(v) + c(v,x) < g_t(x)?
-                                if (costHelpPtr_->isCostBetterThan(
-                                        costHelpPtr_->combineCosts(edge.first->getCost(), trueEdgeCost),
-                                        edge.second->getCost()))
-                                {
-                                    // YAAAAH. Add the edge! Allowing for the sample to be removed from free if it is
-                                    // not currently connected and otherwise propagate cost updates to descendants.
-                                    // addEdge will update the queue and handle the extra work that occurs if this edge
-                                    // improves the solution.
-                                    this->addEdge(edge, trueEdgeCost);
+                                  // Does the current edge improve our graph?
+                                  // g_t(v) + c(v,x) < g_t(x)?
+                                  if (costHelpPtr_->isCostBetterThan(
+                                          costHelpPtr_->combineCosts(edge.first->getCost(), trueEdgeCost),
+                                          edge.second->getCost()))
+                                  {
+                                      // YAAAAH. Add the edge! Allowing for the sample to be removed
+                                      // from free if it is not currently connected and otherwise propagate
+                                      // cost updates to descendants. addEdge will update the queue and
+                                      // handle the extra work that occurs if this edge improves the solution.
+                                      this->addEdge(edge, trueEdgeCost);
 
-                                    // If the path to the goal has changed, we will need to update the cached info about
-                                    // the solution cost or solution length:
-                                    this->updateGoalVertex();
+                                      // If the path to the goal has changed, we will need to update the
+                                      // cached info about the solution cost or solution length:
+                                      this->updateGoalVertex();
 
-                                    // If this is the first edge that's being expanded in the current search, remember
-                                    // the cost-to-come and the search / approximation ids.
-                                    if (!edge.first->isExpandedOnCurrentSearch())
-                                    {
-                                        edge.first->registerExpansion();
-                                    }
-                                }
-                                // No else, this edge may be useful at some later date.
-                            }
-                            else  // Remember that this edge is in collision.
-                            {
-                                this->blacklistEdge(edge);
-                            }
-                        }
-                        // No else, we failed
-                    }
-                    // No else, we failed
-                }
-                else
-                {
-                    isSearchDone_ = true;
-                }
-            }  // Search queue not empty.
+                                      // If this is the first edge that's being expanded in the current search,
+                                      // remember the cost-to-come and the search / approximation ids.
+                                      if (!edge.first->isExpandedOnCurrentSearch())
+                                      {
+                                          edge.first->registerExpansion();
+                                      }
+                                  }
+                                  // No else, this edge may be useful at some later date.
+                              }
+                              else  // Remember that this edge is in collision.
+                              {
+                                  this->blacklistEdge(edge);
+                              }
+                          }
+                          // No else, we failed
+                      }
+                      // No else, we failed
+                  }
+                  else
+                  {
+                      isSearchDone_ = true;
+                  }
+              }  // Search queue not empty.
+              */
         }
 
         void IGLS::newBatch()
@@ -711,16 +712,9 @@ namespace ompl
                 // Add the vertex to the set of vertices.
                 graphPtr_->registerAsVertex(edge.second);
             }
-
-            // If the vertex hasn't already been expanded, insert its outgoing edges
-            if (!edge.second->isExpandedOnCurrentSearch())
-            {
-                queuePtr_->insertOutgoingEdges(edge.second);
-            }
-            else  // If the vertex has already been expanded, remember it as inconsistent.
-            {
-                queuePtr_->addToInconsistentSet(edge.second);
-            }
+            // Add the child to the queue.
+            // TODO(avk): Need to add vertex to queue.
+            // queuePtr_->insertOutgoingEdges(edge.second);
         }
 
         void IGLS::replaceParent(const VertexPtrPair &edge, const ompl::base::Cost &edgeCost)
@@ -780,7 +774,7 @@ namespace ompl
                 bestCost_ = newCost;
 
                 // and best length
-                bestLength_ = graphPtr->getGoalVertex()->getDepth() + 1u;
+                bestLength_ = graphPtr_->getGoalVertex()->getDepth() + 1u;
 
                 // Tell everyone else about it.
                 queuePtr_->registerSolutionCost(bestCost_);
@@ -859,10 +853,10 @@ namespace ompl
                 outputStream << ", g: " << std::setw(5) << std::setfill(' ') << graphPtr_->numVertices();
                 // The number of free states
                 outputStream << ", f: " << std::setw(5) << std::setfill(' ') << graphPtr_->numSamples();
-                // The number edges in the queue:
-                outputStream << ", q: " << std::setw(5) << std::setfill(' ') << queuePtr_->numEdges();
-                // The total number of edges taken out of the queue:
-                outputStream << ", t: " << std::setw(5) << std::setfill(' ') << queuePtr_->numEdgesPopped();
+                // The number vertices in the queue:
+                outputStream << ", q: " << std::setw(5) << std::setfill(' ') << queuePtr_->numVertices();
+                // The total number of vertices taken out of the queue:
+                outputStream << ", t: " << std::setw(5) << std::setfill(' ') << queuePtr_->numVerticesPopped();
                 // The number of samples generated
                 outputStream << ", s: " << std::setw(5) << std::setfill(' ') << graphPtr_->numStatesGenerated();
                 // The number of vertices ever added to the graph:
@@ -987,16 +981,6 @@ namespace ompl
             return pruneFraction_;
         }
 
-        void IGLS::setDropSamplesOnPrune(bool dropSamples)
-        {
-            graphPtr_->setDropSamplesOnPrune(dropSamples);
-        }
-
-        bool IGLS::getDropSamplesOnPrune() const
-        {
-            return graphPtr_->getDropSamplesOnPrune();
-        }
-
         void IGLS::setStopOnSolnImprovement(bool stopOnChange)
         {
             stopOnSolutionChange_ = stopOnChange;
@@ -1056,7 +1040,7 @@ namespace ompl
 
         std::string IGLS::vertexQueueSizeProgressProperty() const
         {
-            return std::to_string(queuePtr_->numEdges());
+            return std::to_string(queuePtr_->numVertices());
         }
 
         std::string IGLS::iterationProgressProperty() const
@@ -1116,7 +1100,7 @@ namespace ompl
 
         std::string IGLS::verticesProcessedProgressProperty() const
         {
-            return std::to_string(queuePtr_->numEdgesPopped());
+            return std::to_string(queuePtr_->numVerticesPopped());
         }
         /////////////////////////////////////////////////////////////////////////////////////////////
     }  // namespace geometric

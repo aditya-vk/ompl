@@ -27,7 +27,7 @@ namespace ompl
         */
 
         /** \brief A queue of vertices, sorted according to a sort key. */
-        class BITstar::SearchQueue
+        class IGLS::SearchQueue
         {
         public:
             // ---
@@ -78,7 +78,7 @@ namespace ompl
             // ---
 
             /** \brief Update the vertex queue by adding all the potential neighbors from the vertex.*/
-            void insertNeigborVertices(const VertexPtr &vertex);
+            void insertNeighborVertices(const VertexPtr &vertex);
 
             // ---
             // Access.
@@ -176,7 +176,7 @@ namespace ompl
             /** \brief Whether cascading of rewirings is enabled. */
             bool isCascadingOfRewiringsEnabled_{false};
 
-            /** \brief A cost/heuristic helper class. As I am a copy of the version owned by BITstar.cpp, I can be reset
+            /** \brief A cost/heuristic helper class. As I am a copy of the version owned by IGLS.cpp, I can be reset
              * in a clear().*/
             CostHelper *costHelpPtr_{nullptr};
 
@@ -203,4 +203,4 @@ namespace ompl
         };  // class SearchQueue
     }       // namespace geometric
 }  // namespace ompl
-#endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_SEARCHQUEUE_
+#endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_SEARCHQUEUE_
