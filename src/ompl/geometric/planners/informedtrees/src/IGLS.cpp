@@ -44,7 +44,7 @@ namespace ompl
             Planner::specs_.recognizedGoal = ompl::base::GOAL_SAMPLEABLE_REGION;
             Planner::specs_.multithreaded = false;
 
-            // Approximate solutions are supported but must be enabled with the appropriate configuration parameter.
+            // Approximate solutions are not supported currently.
             Planner::specs_.approximateSolutions = false;
             Planner::specs_.optimizingPaths = true;
             Planner::specs_.directed = true;
@@ -131,8 +131,7 @@ namespace ompl
             // Check if we have a problem definition
             if (static_cast<bool>(Planner::pdef_))
             {
-                // We do, do some initialization work.
-                // See if we have an optimization objective
+                // If no objective is provided, default to path length optimization.
                 if (!Planner::pdef_->hasOptimizationObjective())
                 {
                     OMPL_INFORM("%s: No optimization objective specified. Defaulting to optimizing path length.",
@@ -140,10 +139,6 @@ namespace ompl
                     Planner::pdef_->setOptimizationObjective(
                         std::make_shared<base::PathLengthOptimizationObjective>(Planner::si_));
                 }
-                // No else, we were given one.
-
-                // Initialize the best cost found so far to be infinite.
-                bestCost_ = Planner::pdef_->getOptimizationObjective()->infiniteCost();
 
                 // If the problem definition *has* a goal, make sure it is of appropriate type
                 if (static_cast<bool>(Planner::pdef_->getGoal()))
@@ -157,9 +152,7 @@ namespace ompl
                         Planner::setup_ = false;
                         return;
                     }
-                    // No else, of correct type.
                 }
-                // No else, called without a goal. Is this MoveIt?
 
                 // Setup the CostHelper, it provides everything I need from optimization objective plus some frills
                 costHelpPtr_->setup(Planner::pdef_->getOptimizationObjective(), graphPtr_.get());
@@ -198,7 +191,6 @@ namespace ompl
             queuePtr_->reset();
 
             // Reset the various calculations and convenience containers. Will be recalculated on setup
-            curGoalVertex_.reset();
             bestCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
             bestLength_ = 0u;
             prunedCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
@@ -211,12 +203,6 @@ namespace ompl
             numEdgeCollisionChecks_ = 0u;
             numRewirings_ = 0u;
 
-            // DO NOT reset the configuration parameters:
-            // samplesPerBatch_
-            // usePruning_
-            // pruneFraction_
-            // stopOnSolnChange_
-
             // Mark as not setup:
             Planner::setup_ = false;
 
@@ -224,12 +210,12 @@ namespace ompl
             Planner::clear();
         }
 
+        // ============================================================================================================
+        // ============================================================================================================
         ompl::base::PlannerStatus IGLS::solve(const ompl::base::PlannerTerminationCondition &ptc)
         {
             // Check that Planner::setup_ is true, if not call this->setup()
             Planner::checkValidity();
-
-            // Assert setup succeeded
             if (!Planner::setup_)
             {
                 throw ompl::Exception("%s::solve() failed to set up the planner. Has a problem definition been set?",
@@ -238,23 +224,11 @@ namespace ompl
             OMPL_INFORM("%s: Searching for a solution to the given planning problem.", Planner::getName().c_str());
 
             // Reset the manual stop to the iteration loop:
-            // TODO(avk): Why do I need to do this?
             stopLoop_ = false;
 
-            // If we don't have a goal yet, recall updateStartAndGoalStates, but wait for the first goal (or until the
-            // PTC comes true and we give up):
-            if (!graphPtr_->hasAGoal())
-            {
-                graphPtr_->updateStartAndGoalStates(Planner::pis_, ptc);
-            }
-
-            // Insert the start vertices into the queue.
-            // TODO(avk): Why do we need to check for numIterations_ here?
-            if (numIterations_ == 0u)
-            {
-                // TODO(avk): is this what you want to do, or do you want to just enqueue the vertex??
-                queuePtr_->insertNeighborVertices(graphPtr_->getStartVertex());
-            }
+            // Assuming that the start and goal are provided with pdef and processed in setup().
+            // Insert the start vertex into the queue.
+            queuePtr_->enqueueVertex(graphPtr_->getStartVertex());
 
             /**
              * Iterate as long as:
@@ -301,7 +275,7 @@ namespace ompl
             if (hasExactSolution_)
             {
                 // Exact solution
-                data.markGoalState(curGoalVertex_->state());
+                data.markGoalState(graphPtr_->getGoalVertex()->state());
             }
             // No else, no solution
         }
@@ -363,144 +337,108 @@ namespace ompl
         {
             return numBatches_;
         }
-        /////////////////////////////////////////////////////////////////////////////////////////////
-
-        /////////////////////////////////////////////////////////////////////////////////////////////
+        // ============================================================================================================
+        // ============================================================================================================
         // Protected functions:
+
         void IGLS::iterate()
         {
-            /**
-              // Keep track of how many iterations we've performed.
-              ++numIterations_;
+            // Keep track of how many iterations we've performed.
+            ++numIterations_;
 
-              // If the search is done or the queue is empty, we need to populate the queue.
-              if (isSearchDone_ || queuePtr_->isEmpty())
-              {
-                  // Check whether we've exhausted the current approximation.
-                  if (isFinalSearchOnBatch_ || !hasExactSolution_)
-                  {
-                      // Prune the graph if enabled.
-                      if (isPruningEnabled_)
-                      {
-                          this->prune();
-                      }
+            // Lazy search upto a horizon.
+            search();
 
-                      // Add a new batch.
-                      this->newBatch();
+            if (queuePtr_->isEmpty())
+            {
+                return;
+            }
 
-                      // Set the inflation factor to an initial value.
-                      queuePtr_->setInflationFactor(initialInflationFactor_);
+            // Evaluate the most promising subpath.
+            evaluate();
 
-                      // Clear the search queue.
-                      queuePtr_->clear();
+            // Prune?
+        }
 
-                      // Restart the queue, adding the outgoing edges of the start vertices to the queue.
-                      queuePtr_->insertOutgoingEdgesOfStartVertices();
+        void IGLS::search()
+        {
+            // Get the most promising vertex.
+            VertexPtr vertex = queuePtr_->popFrontVertex();
 
-                      // Set flag to false.
-                      isFinalSearchOnBatch_ = false;
+            // Assert that the top vertex in the queue has an f-value less than the current best cost.
+            assert(costHelpPtr_->isCostBetterThanOrEquivalentTo(
+                costHelpPtr_->combineCosts(vertex->getCost(), costHelpPtr_->costToGoHeuristic(vertex)), bestCost_));
 
-                      // Set the new truncation factor.
-                      truncationFactor_ =
-                          1.0 + truncationScalingParameter_ /
-                                    (static_cast<float>(graphPtr_->numVertices() + graphPtr_->numSamples()));
-                  }
-                  else
-                  {
-                      // Exhaust the current approximation by performing an uninflated search.
-                      queuePtr_->setInflationFactor(
-                          1.0 + inflationScalingParameter_ /
-                                    (static_cast<float>(graphPtr_->numVertices() + graphPtr_->numSamples())));
-                      queuePtr_->rebuildEdgeQueue();
-                      queuePtr_->insertOutgoingEdgesOfInconsistentVertices();
-                      queuePtr_->clearInconsistentSet();
-                      isFinalSearchOnBatch_ = true;
-                  }
+            // Expand the vertex to populate the search queue.
+            // First process already existing children.
+            VertexPtrVector currentChildren;
+            vertex->getChildren(&currentChildren);
+            for (const auto &child : currentChildren)
+            {
+                // TODO(avk): This enqueue should happen conditionally, private function.
+                queuePtr_->enqueueVertex(child);
+            }
 
-                  isSearchDone_ = false;
-              }
-              else
-              {
-                  // Get the most promising edge.
-                  VertexPtrPair edge = queuePtr_->popFrontEdge();
+            // Now process new neighbors.
+            VertexPtrVector neighbors;
+            graphPtr_->nearestSamples(vertex, &neighbors);
 
-                  // If this edge is already part of the search tree it's a freebie.
-                  if (edge.second->hasParent() && edge.second->getParent()->getId() == edge.first->getId())
-                  {
-                      if (!edge.first->isExpandedOnCurrentSearch())
-                      {
-                          edge.first->registerExpansion();
-                      }
-                      queuePtr_->insertOutgoingEdges(edge.second);
-                  }
-                  // In the best case, can this edge improve our solution given the current graph?
-                  // g_t(v) + c_hat(v,x) + h_hat(x) < g_t(x_g)?
-                  else if (costHelpPtr_->isCostBetterThan(
-                               costHelpPtr_->inflateCost(costHelpPtr_->currentHeuristicEdge(edge), truncationFactor_),
-                               bestCost_))
-                  {
-                      // What about improving the current graph?
-                      // g_t(v) + c_hat(v,x)  < g_t(x)?
-                      if (costHelpPtr_->isCostBetterThan(costHelpPtr_->currentHeuristicToTarget(edge),
-                                                         edge.second->getCost()))
-                      {
-                          // Ok, so it *could* be a useful edge. Do the work of calculating its cost for real
+            // TODo(avk): If the vertex v has already been expanded before, we don't want to cascade a rewire.
+            // and only want to consider nearest samples.
+            for (const auto &neighbor : neighbors)
+            {
+                // TODO(avk): Filter some neighbors out if the vertex was already expanded.
+                const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
+                if (!neighbor->isInTree())
+                {
+                    // Add a parent to the child.
+                    neighbor->addParent(vertex, edgeCost);
 
-                          // Get the true cost of the edge
-                          ompl::base::Cost trueEdgeCost = costHelpPtr_->trueEdgeCost(edge);
+                    // Add a child to the parent.
+                    vertex->addChild(neighbor);
 
-                          // Can this actual edge ever improve our solution?
-                          // g_hat(v) + c(v,x) + h_hat(x) < g_t(x_g)?
-                          if (costHelpPtr_->isCostBetterThan(
-                                  costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(edge.first),
-              trueEdgeCost, costHelpPtr_->costToGoHeuristic(edge.second)), bestCost_))
-                          {
-                              // Does this edge have a collision?
-                              if (this->checkEdge(edge))
-                              {
-                                  // Remember that this edge has passed the collision checks.
-                                  this->whitelistEdge(edge);
+                    // Add the vertex to the set of vertices.
+                    graphPtr_->registerAsVertex(neighbor);
+                }
+                else
+                {
+                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
+                            costHelpPtr_->combineCosts(vertex->getCost(), edgeCost), neighbor->getCost()))
+                    {
+                        // Ignore this neighbor.
+                        continue;
+                    }
+                    // vertex is strictly a better parent to neighbor. Rewire.
+                    this->replaceParent(vertex, neighbor, edgeCost);
+                }
+                queuePtr_->enqueueVertex(neighbor);
+            }
 
-                                  // Does the current edge improve our graph?
-                                  // g_t(v) + c(v,x) < g_t(x)?
-                                  if (costHelpPtr_->isCostBetterThan(
-                                          costHelpPtr_->combineCosts(edge.first->getCost(), trueEdgeCost),
-                                          edge.second->getCost()))
-                                  {
-                                      // YAAAAH. Add the edge! Allowing for the sample to be removed
-                                      // from free if it is not currently connected and otherwise propagate
-                                      // cost updates to descendants. addEdge will update the queue and
-                                      // handle the extra work that occurs if this edge improves the solution.
-                                      this->addEdge(edge, trueEdgeCost);
+            // Mark that this vertex has been expanded.
+            // TODO(avk): I want to know if this vertex was expanded before.
+            vertex->registerExpansion();
+        }
 
-                                      // If the path to the goal has changed, we will need to update the
-                                      // cached info about the solution cost or solution length:
-                                      this->updateGoalVertex();
+        void IGLS::evaluate()
+        {
+            VertexPtrVector reverseSubpath = pathFromVertexToStart(queuePtr_->getFrontVertex());
 
-                                      // If this is the first edge that's being expanded in the current search,
-                                      // remember the cost-to-come and the search / approximation ids.
-                                      if (!edge.first->isExpandedOnCurrentSearch())
-                                      {
-                                          edge.first->registerExpansion();
-                                      }
-                                  }
-                                  // No else, this edge may be useful at some later date.
-                              }
-                              else  // Remember that this edge is in collision.
-                              {
-                                  this->blacklistEdge(edge);
-                              }
-                          }
-                          // No else, we failed
-                      }
-                      // No else, we failed
-                  }
-                  else
-                  {
-                      isSearchDone_ = true;
-                  }
-              }  // Search queue not empty.
-              */
+            // Use the selector to process evaluation of an edge.
+            VertexPtrPair edge;
+            if (!checkEdge(edge))
+            {
+                // TODO(avk): Blacklist this edge.
+                repair();
+            }
+            else
+            {
+                // TODO(avk): Whitelist the edge.
+            }
+        }
+
+        void IGLS::repair()
+        {
+            return;
         }
 
         void IGLS::newBatch()
@@ -524,13 +462,13 @@ namespace ompl
             // If we don't have an exact solution, we can't prune sensibly.
             if (hasExactSolution_)
             {
-                /* Profiling reveals that pruning is very expensive, mainly because the nearest neighbour structure of
-                 * the samples has to be updated. On the other hand, nearest neighbour lookup gets more expensive the
-                 * bigger the structure, so it's a tradeoff. Pruning on every cost update seems insensible, but so does
-                 * never pruning at all. The criteria to prune should depend on how many vertices/samples there are and
-                 * how many of them could be pruned, as the decrease in cost associated with nearest neighbour lookup
-                 * for fewer samples must justify the cost of pruning. It turns out that counting is affordable, so we
-                 * don't need to use any proxy here. */
+                /* Profiling reveals that pruning is very expensive, mainly because the nearest neighbour structure
+                 * of the samples has to be updated. On the other hand, nearest neighbour lookup gets more expensive
+                 * the bigger the structure, so it's a tradeoff. Pruning on every cost update seems insensible, but
+                 * so does never pruning at all. The criteria to prune should depend on how many vertices/samples
+                 * there are and how many of them could be pruned, as the decrease in cost associated with nearest
+                 * neighbour lookup for fewer samples must justify the cost of pruning. It turns out that counting
+                 * is affordable, so we don't need to use any proxy here. */
 
                 // Count the number of samples that could be pruned.
                 auto samples = graphPtr_->getCopyOfSamples();
@@ -544,8 +482,8 @@ namespace ompl
                 }
 
                 // Only prune if the decrease in number of samples and the associated decrease in nearest neighbour
-                // lookup cost justifies the cost of pruning. There has to be a way to make this more formal, and less
-                // knob-turney, right?
+                // lookup cost justifies the cost of pruning. There has to be a way to make this more formal, and
+                // less knob-turney, right?
                 if (static_cast<float>(numSamplesThatCouldBePruned) /
                         static_cast<float>(graphPtr_->numSamples() + graphPtr_->numVertices()) >=
                     pruneFraction_)
@@ -565,7 +503,8 @@ namespace ompl
                     // Also store the measure.
                     prunedMeasure_ = informedMeasure;
 
-                    OMPL_INFORM("%s: Pruning disconnected %d vertices from the tree and completely removed %d samples.",
+                    OMPL_INFORM("%s: Pruning disconnected %d vertices from the tree and completely removed %d "
+                                "samples.",
                                 Planner::getName().c_str(), numPruned.first, numPruned.second);
                 }
             }
@@ -576,6 +515,7 @@ namespace ompl
         {
             // We store the actual blacklist with the parent vertex for efficient lookup.
             // TODO(avk): Is this enough? What if I am collision checking second->first later?
+            // I need a child to parent lookup for efficient repairs.
             edge.first->blacklistChild(edge.second);
         }
 
@@ -587,7 +527,6 @@ namespace ompl
 
         void IGLS::publishSolution()
         {
-            // Variable
             // The reverse path of state pointers
             std::vector<const ompl::base::State *> reversePath;
             // Allocate a path geometric
@@ -604,8 +543,6 @@ namespace ompl
 
             // Now create the solution
             ompl::base::PlannerSolution soln(pathGeoPtr);
-
-            // Mark the name:
             soln.setPlannerName(Planner::getName());
 
             // Mark whether the solution met the optimization objective:
@@ -616,39 +553,59 @@ namespace ompl
             Planner::pdef_->addSolutionPath(soln);
         }
 
-        std::vector<const ompl::base::State *> IGLS::bestPathFromGoalToStart() const
+        IGLS::VertexPtrVector IGLS::pathFromVertexToStart(const VertexPtr &vertex) const
         {
-            // Variables:
             // A vector of states from goal->start:
-            std::vector<const ompl::base::State *> reversePath;
-            // The vertex used to ascend up from the goal:
-            VertexConstPtr curVertex;
+            VertexPtrVector reversePath;
+            VertexPtr curVertex = vertex;
 
-            // Iterate up the chain from the goal, creating a backwards vector:
-            if (hasExactSolution_)
-            {
-                // Start at vertex in the goal
-                curVertex = curGoalVertex_;
-            }
-            else
-            {
-                throw ompl::Exception("bestPathFromGoalToStart called without an exact solution.");
-            }
-
-            // Insert the goal into the path
-            reversePath.push_back(curVertex->state());
-
-            // Then, use the vertex pointer like an iterator. Starting at the goal, we iterate up the chain pushing the
-            // *parent* of the iterator into the vector until the vertex has no parent.
-            // This will allows us to add the start (as the parent of the first child) and then stop when we get to the
-            // start itself, avoiding trying to find its nonexistent child
+            // Insert the current vertex and iterate backwards.
+            reversePath.push_back(curVertex);
             for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParent())
             {
 #ifdef IGLS_DEBUG
                 // Check the case where the chain ends incorrectly.
                 if (curVertex->hasParent() == false)
                 {
-                    throw ompl::Exception("The path to the goal does not originate at a start state. Something went "
+                    throw ompl::Exception("The path to the goal does not originate at a start state. Something "
+                                          "went "
+                                          "wrong.");
+                }
+#endif  // IGLS_DEBUG
+
+                // Push back the parent into the vector as a state pointer:
+                reversePath.push_back(curVertex->getParent());
+            }
+            return reversePath;
+        }
+
+        std::vector<const ompl::base::State *> IGLS::bestPathFromGoalToStart() const
+        {
+            // A vector of states from goal->start:
+            std::vector<const ompl::base::State *> reversePath;
+            VertexConstPtr curVertex;
+
+            // Iterate up the chain from the goal, creating a backwards vector:
+            if (hasExactSolution_)
+            {
+                // Start at vertex in the goal
+                curVertex = graphPtr_->getGoalVertex();
+            }
+            else
+            {
+                throw ompl::Exception("bestPathFromGoalToStart called without an exact solution.");
+            }
+
+            // Insert the goal into the path and iterate backwards.
+            reversePath.push_back(curVertex->state());
+            for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParent())
+            {
+#ifdef IGLS_DEBUG
+                // Check the case where the chain ends incorrectly.
+                if (curVertex->hasParent() == false)
+                {
+                    throw ompl::Exception("The path to the goal does not originate at a start state. Something "
+                                          "went "
                                           "wrong.");
                 }
 #endif  // IGLS_DEBUG
@@ -680,53 +637,12 @@ namespace ompl
             }
         }
 
-        // TODO(avk): I should not need this function since I have a vertex queue.
-        void IGLS::addEdge(const VertexPtrPair &edge, const ompl::base::Cost &edgeCost)
+        void IGLS::replaceParent(const VertexPtr &parent, const VertexPtr &neighbor, const ompl::base::Cost &edgeCost)
         {
 #ifdef IGLS_DEBUG
-            if (edge.first->isInTree() == false)
-            {
-                throw ompl::Exception("Adding an edge from a vertex not connected to the graph");
-            }
-            if (costHelpPtr_->isCostEquivalentTo(costHelpPtr_->trueEdgeCost(edge), edgeCost) == false)
-            {
-                throw ompl::Exception("You have passed the wrong edge cost to addEdge.");
-            }
-#endif  // IGLS_DEBUG
-
-            // If the child already has a parent, this is a rewiring.
-            if (edge.second->hasParent())
-            {
-                // Replace the old parent.
-                this->replaceParent(edge, edgeCost);
-            }  // If not, we add the vertex without replaceing a parent.
-            else
-            {
-                // Add a parent to the child.
-                edge.second->addParent(edge.first, edgeCost);
-
-                // Add a child to the parent.
-                edge.first->addChild(edge.second);
-
-                // Add the vertex to the set of vertices.
-                graphPtr_->registerAsVertex(edge.second);
-            }
-            // Add the child to the queue.
-            // TODO(avk): Need to add vertex to queue.
-            queuePtr_->enqueueVertex(edge.second);
-        }
-
-        void IGLS::replaceParent(const VertexPtrPair &edge, const ompl::base::Cost &edgeCost)
-        {
-#ifdef IGLS_DEBUG
-            if (edge.second->getParent()->getId() == edge.first->getId())
+            if (neighbor->getParent()->getId() == parent->getId())
             {
                 throw ompl::Exception("The new and old parents of the given rewiring are the same.");
-            }
-            if (costHelpPtr_->isCostBetterThan(edge.second->getCost(),
-                                               costHelpPtr_->combineCosts(edge.first->getCost(), edgeCost)) == true)
-            {
-                throw ompl::Exception("The new edge will increase the cost-to-come of the vertex!");
             }
 #endif  // IGLS_DEBUG
 
@@ -734,75 +650,55 @@ namespace ompl
             ++numRewirings_;
 
             // Remove the child from the parent, not updating costs
-            edge.second->getParent()->removeChild(edge.second);
+            neighbor->getParent()->removeChild(neighbor);
 
             // Remove the parent from the child, not updating costs
-            edge.second->removeParent(false);
+            neighbor->removeParent(false);
 
             // Add the parent to the child. updating the downstream costs.
-            edge.second->addParent(edge.first, edgeCost);
+            neighbor->addParent(parent, edgeCost);
 
             // Add the child to the parent.
-            edge.first->addChild(edge.second);
+            parent->addChild(neighbor);
         }
 
-        void IGLS::updateGoalVertex()
+        void IGLS::registerSolution()
         {
-            // Variable
-            // Whether we've updated the goal, be pessimistic.
-            bool goalUpdated = false;
-            // The new goal, start with the current goal
-            VertexConstPtr newBestGoal = curGoalVertex_;
-            // The new cost, start as the current bestCost_
-            ompl::base::Cost newCost = bestCost_;
+            // We have an exact solution, update tracked costs.
+            hasExactSolution_ = true;
+            bestCost_ = graphPtr_->getGoalVertex()->getCost();
+            bestLength_ = graphPtr_->getGoalVertex()->getDepth() + 1u;
 
-            if (costHelpPtr_->isCostBetterThan(graphPtr_->getGoalVertex()->getCost(), newCost))
+            // Tell everyone else about it.
+            queuePtr_->registerSolutionCost(bestCost_);
+            graphPtr_->registerSolutionCost(bestCost_);
+
+            // Stop the solution loop if enabled:
+            stopLoop_ = stopOnSolutionChange_;
+
+            // Brag:
+            this->goalMessage();
+
+            // If enabled, pass the intermediate solution back through the call back:
+            if (static_cast<bool>(Planner::pdef_->getIntermediateSolutionCallback()))
             {
-                goalUpdated = true;
-                newCost = newBestGoal->getCost();
+                // The form of path passed to the intermediate solution callback is not well documented, but it
+                // *appears* that it's not supposed
+                // to include the start or goal; however, that makes no sense for multiple start/goal problems, so
+                // we're going to include it anyway (sorry).
+                // Similarly, it appears to be ordered as (goal, goal-1, goal-2,...start+1, start) which
+                // conveniently allows us to reuse code.
+                Planner::pdef_->getIntermediateSolutionCallback()(this, this->bestPathFromGoalToStart(), bestCost_);
             }
-            // No else, not a better solution
-
-            // Did we update the goal?
-            if (goalUpdated)
-            {
-                // Mark that we have a solution
-                hasExactSolution_ = true;
-
-                // Update the best cost:
-                bestCost_ = newCost;
-
-                // and best length
-                bestLength_ = graphPtr_->getGoalVertex()->getDepth() + 1u;
-
-                // Tell everyone else about it.
-                queuePtr_->registerSolutionCost(bestCost_);
-                graphPtr_->registerSolutionCost(bestCost_);
-
-                // Stop the solution loop if enabled:
-                stopLoop_ = stopOnSolutionChange_;
-
-                // Brag:
-                this->goalMessage();
-
-                // If enabled, pass the intermediate solution back through the call back:
-                if (static_cast<bool>(Planner::pdef_->getIntermediateSolutionCallback()))
-                {
-                    // The form of path passed to the intermediate solution callback is not well documented, but it
-                    // *appears* that it's not supposed
-                    // to include the start or goal; however, that makes no sense for multiple start/goal problems, so
-                    // we're going to include it anyway (sorry).
-                    // Similarly, it appears to be ordered as (goal, goal-1, goal-2,...start+1, start) which
-                    // conveniently allows us to reuse code.
-                    Planner::pdef_->getIntermediateSolutionCallback()(this, this->bestPathFromGoalToStart(), bestCost_);
-                }
-            }
-            // No else, the goal didn't change
         }
 
+        // ============================================================================================================
+        // ============================================================================================================
+        // Messages to the user/console.
         void IGLS::goalMessage() const
         {
-            OMPL_INFORM("%s (%u iters): Found a solution of cost %.4f (%u vertices) from %u samples by processing %u "
+            OMPL_INFORM("%s (%u iters): Found a solution of cost %.4f (%u vertices) from %u samples by processing "
+                        "%u "
                         "vertices, collision checking %u edges and perform %u rewirings. The graph "
                         "currently has %u vertices.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
@@ -897,10 +793,10 @@ namespace ompl
             }
             // No else, this message is below the log level
         }
-        /////////////////////////////////////////////////////////////////////////////////////////////
 
-        /////////////////////////////////////////////////////////////////////////////////////////////
-        // Boring sets/gets (Public) and progress properties (Protected):
+        // ============================================================================================================
+        // ============================================================================================================
+        // Setters/Getters (Public) and progress properties (Protected):
         void IGLS::enableCascadingRewirings(bool enable)
         {
             queuePtr_->enableCascadingRewirings(enable);
@@ -935,7 +831,8 @@ namespace ompl
             if (!graphPtr_->getUseKNearest() && Planner::getName() == "kIGLS")
             {
                 // It's current the default k-nearest IGLS name, and we're toggling, so set to the default r-disc
-                OMPL_WARN("IGLS: An r-disc version of IGLS can not be named 'kBITstar', as this name is reserved for "
+                OMPL_WARN("IGLS: An r-disc version of IGLS can not be named 'kBITstar', as this name is reserved "
+                          "for "
                           "the k-nearest version. Changing the name to 'IGLS'.");
                 Planner::setName("IGLS");
             }

@@ -143,6 +143,11 @@ namespace ompl
                 return this->motionCost(edgePair.first->state(), edgePair.second->state());
             };
 
+            inline ompl::base::Cost trueEdgeCost(const VertexPtr &source, const VertexPtr &target) const
+            {
+                return this->motionCost(source->state(), target->state());
+            };
+
             /** \brief Combine multiple costs. */
             template <typename... Costs>
             inline ompl::base::Cost combineCosts(const ompl::base::Cost &cost, const Costs &... costs) const

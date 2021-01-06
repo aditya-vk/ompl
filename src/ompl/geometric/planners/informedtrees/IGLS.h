@@ -189,6 +189,15 @@ namespace ompl
             /** \brief A single iteration. */
             void iterate();
 
+            /** \brief Lazy search until the event triggers */
+            void search();
+
+            /** \brief Evaluate the most promising subpath */
+            void evaluate();
+
+            /** \brief Repairs the search tree. */
+            void repair();
+
             /** \brief Initialize variables for a new batch. */
             void newBatch();
 
@@ -201,6 +210,10 @@ namespace ompl
             // ---
             // Low level primitives.
             // ---
+
+            /** \brief Extract the subpath connecting the start to the given vertex. The subpath is returned in
+             * reverse. */
+            VertexPtrVector pathFromVertexToStart(const VertexPtr &vertex) const;
 
             /** \brief Extract the best solution, ordered \e from the goal to the \e start and including both the goal
              * and the start. Used by both publishSolution and the ProblemDefinition::IntermediateSolutionCallback. */
@@ -215,15 +228,11 @@ namespace ompl
             /** \brief Whitelists an edge (useful if an edge not in collision). */
             void whitelistEdge(const VertexPtrPair &edge) const;
 
-            /** \brief Add an edge from the edge queue to the tree. Will add the state to the vertex queue if it's new
-             * to the tree or otherwise replace the parent. Updates solution information if the solution improves. */
-            void addEdge(const VertexPtrPair &edge, const ompl::base::Cost &edgeCost);
-
             /** \brief Replace the parent edge with the given new edge and cost */
-            void replaceParent(const VertexPtrPair &edge, const ompl::base::Cost &edgeCost);
+            void replaceParent(const VertexPtr &parent, const VertexPtr &neighbor, const ompl::base::Cost &edgeCost);
 
-            /** \brief The special work that needs to be done to update the goal vertex if the solution has changed. */
-            void updateGoalVertex();
+            /** \brief The special work that needs to be done when a collision-free path has been computed. */
+            void registerSolution();
 
             // ---
             // Logging.
@@ -324,9 +333,6 @@ namespace ompl
              * solution cost. Remaining vertex queue "size" and edge queue size are accessible via
              * vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
             std::shared_ptr<SearchQueue> queuePtr_{nullptr};
-
-            /** \brief The goal vertex of the current best solution. */
-            VertexConstPtr curGoalVertex_{nullptr};
 
             /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider.
              * Accessible via bestCostProgressProperty */
