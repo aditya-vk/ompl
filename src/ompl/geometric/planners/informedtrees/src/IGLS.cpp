@@ -716,24 +716,24 @@ namespace ompl
             // If the neighbor is the root, or same as the vertex, ignore.
             if (neighbor->isRoot() || neighbor->getId() == vertex->getId())
             {
-                return true;
+                return false;
             }
             // If the neighbors's parent is already the current vertex, ignore.
-            if (neighbor->getParent()->getId() == vertex->getId())
+            if (neighbor->isInTree() && neighbor->getParent()->getId() == vertex->getId())
             {
-                return true;
+                return false;
             }
             // If the neighbor is the vertex's parent, avoid this loop!
             if (!vertex->isRoot() && neighbor->getId() == vertex->getParent()->getId())
             {
-                return true;
+                return false;
             }
             // If the edge has been evaluated previously and is in collision, ignore!
             if (vertex->hasBlacklistedChild(neighbor) || neighbor->hasBlacklistedChild(vertex))
             {
-                return true;
+                return false;
             }
-            return false;
+            return true;
         }
 
         void IGLS::registerSolution()
@@ -776,7 +776,7 @@ namespace ompl
                         "vertices, collision checking %u edges and perform %u rewirings. The graph "
                         "currently has %u vertices.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
-                        queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
+                        graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
                         graphPtr_->numVertices());
         }
 
@@ -786,7 +786,7 @@ namespace ompl
                         "vertices, collision checking %u edges and perform %u rewirings. The final graph "
                         "has %u vertices.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
-                        queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
+                        graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
                         graphPtr_->numVertices());
         }
 
@@ -795,8 +795,9 @@ namespace ompl
             OMPL_INFORM("%s (%u iters): Did not find an exact solution from %u samples by processing %u "
                         "vertices, collision checking %u edges and perform %u rewirings. The final graph "
                         "has %u vertices.",
-                        Planner::getName().c_str(), numIterations_, queuePtr_->numVerticesPopped(),
-                        numEdgeCollisionChecks_, numRewirings_, graphPtr_->numVertices());
+                        Planner::getName().c_str(), numIterations_, graphPtr_->numSamples(),
+                        queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
+                        graphPtr_->numVertices());
         }
 
         void IGLS::statusMessage(const ompl::msg::LogLevel &logLevel, const std::string &status) const
