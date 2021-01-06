@@ -193,7 +193,7 @@ namespace ompl
             void search();
 
             /** \brief Evaluate the most promising subpath */
-            void evaluate();
+            void evaluate(const VertexPtrPair &edge);
 
             /** \brief Repairs the search tree. */
             void repair();
@@ -333,6 +333,12 @@ namespace ompl
              * solution cost. Remaining vertex queue "size" and edge queue size are accessible via
              * vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
             std::shared_ptr<SearchQueue> queuePtr_{nullptr};
+
+            /** \brief The event that defines the toggle between lazy search and evaluation. */
+            std::shared_ptr<Event> event_{nullptr};
+
+            /** \brief The selector that defines the strategy to choose edges for collision checking. */
+            std::shared_ptr<Selector> selector_{nullptr};
 
             /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider.
              * Accessible via bestCostProgressProperty */

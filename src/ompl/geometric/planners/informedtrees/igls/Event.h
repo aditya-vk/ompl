@@ -22,7 +22,7 @@ namespace ompl
 
             /** \brief Returns true if the vertex triggers the event.
              * Default behavior implements LazySP i.e. triggers when vertex is goal. */
-            bool isTriggered(VertexConstPtr &vertex) const;
+            bool isTriggered(const VertexPtr &vertex) const;
 
         private:
             ImplicitGraph *const graphPtr_;
