@@ -12,7 +12,7 @@ namespace ompl
             // Do nothing.
         }
 
-        bool IGLS::Event::isTriggered(VertexConstPtr &vertex) const
+        bool IGLS::Event::isTriggered(const VertexPtr &vertex) const
         {
             return (vertex == graphPtr_->getGoalVertex());
         }

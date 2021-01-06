@@ -18,6 +18,8 @@
 #include "ompl/geometric/planners/informedtrees/igls/CostHelper.h"
 #include "ompl/geometric/planners/informedtrees/igls/ImplicitGraph.h"
 #include "ompl/geometric/planners/informedtrees/igls/SearchQueue.h"
+#include "ompl/geometric/planners/informedtrees/igls/Event.h"
+#include "ompl/geometric/planners/informedtrees/igls/Selector.h"
 
 #ifdef IGLS_DEBUG
 #warning Compiling IGLS with debug-level asserts.
@@ -160,8 +162,12 @@ namespace ompl
                 // Setup the queue
                 queuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
 
-                // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a NN
-                // struct and check for starts/goals, respectively.
+                // Setup the event and the selector.
+                event_ = std::make_shared<Event>(graphPtr_.get());
+                selector_ = std::make_shared<Selector>();
+
+                // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
+                // NN struct and check for starts/goals, respectively.
                 graphPtr_->setup(Planner::si_, Planner::pdef_, costHelpPtr_.get(), queuePtr_.get(), this,
                                  Planner::pis_);
                 graphPtr_->setPruning(isPruningEnabled_);
@@ -343,6 +349,10 @@ namespace ompl
 
         void IGLS::iterate()
         {
+            // TODO(avk): Sampling a new batch.
+            // Publishing intermediate solution.
+            // Fixing the search depending on whether vertex was previously expanded (old).
+
             // Keep track of how many iterations we've performed.
             ++numIterations_;
 
@@ -354,77 +364,82 @@ namespace ompl
                 return;
             }
 
-            // Evaluate the most promising subpath.
-            evaluate();
-
-            // Prune?
+            // Select an edge along the most promising subpath.
+            VertexPtrVector reverseSubpath = pathFromVertexToStart(queuePtr_->getFrontVertex());
+            VertexPtrPair edge = selector_->edgeToEvaluate(reverseSubpath);
+            if (edge == std::pair<VertexPtr, VertexPtr>())
+            {
+                hasExactSolution_ = true;
+                return;
+            }
+            evaluate(edge);
         }
 
         void IGLS::search()
         {
-            // Get the most promising vertex.
-            VertexPtr vertex = queuePtr_->popFrontVertex();
-
-            // Assert that the top vertex in the queue has an f-value less than the current best cost.
-            assert(costHelpPtr_->isCostBetterThanOrEquivalentTo(
-                costHelpPtr_->combineCosts(vertex->getCost(), costHelpPtr_->costToGoHeuristic(vertex)), bestCost_));
-
-            // Expand the vertex to populate the search queue.
-            // First process already existing children.
-            VertexPtrVector currentChildren;
-            vertex->getChildren(&currentChildren);
-            for (const auto &child : currentChildren)
+            // The following should be in a loop until the queuePtr is either empty or event triggers.
+            while (!queuePtr_->isEmpty() && !event_->isTriggered(queuePtr_->getFrontVertex()))
             {
-                // TODO(avk): This enqueue should happen conditionally, private function.
-                queuePtr_->enqueueVertex(child);
-            }
+                // Get the most promising vertex.
+                VertexPtr vertex = queuePtr_->popFrontVertex();
 
-            // Now process new neighbors.
-            VertexPtrVector neighbors;
-            graphPtr_->nearestSamples(vertex, &neighbors);
+                // Assert that the top vertex in the queue has an f-value less than the current best cost.
+                assert(costHelpPtr_->isCostBetterThanOrEquivalentTo(
+                    costHelpPtr_->combineCosts(vertex->getCost(), costHelpPtr_->costToGoHeuristic(vertex)), bestCost_));
 
-            // TODo(avk): If the vertex v has already been expanded before, we don't want to cascade a rewire.
-            // and only want to consider nearest samples.
-            for (const auto &neighbor : neighbors)
-            {
-                // TODO(avk): Filter some neighbors out if the vertex was already expanded.
-                const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
-                if (!neighbor->isInTree())
+                // Expand the vertex to populate the search queue.
+                // First process already existing children.
+                VertexPtrVector currentChildren;
+                vertex->getChildren(&currentChildren);
+                for (const auto &child : currentChildren)
                 {
-                    // Add a parent to the child.
-                    neighbor->addParent(vertex, edgeCost);
-
-                    // Add a child to the parent.
-                    vertex->addChild(neighbor);
-
-                    // Add the vertex to the set of vertices.
-                    graphPtr_->registerAsVertex(neighbor);
+                    // TODO(avk): This enqueue should happen conditionally, private function.
+                    queuePtr_->enqueueVertex(child);
                 }
-                else
+
+                // Now process new neighbors.
+                VertexPtrVector neighbors;
+                graphPtr_->nearestSamples(vertex, &neighbors);
+
+                // TODo(avk): If the vertex v has already been expanded before, we don't want to cascade a rewire.
+                // and only want to consider nearest samples.
+                for (const auto &neighbor : neighbors)
                 {
-                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
-                            costHelpPtr_->combineCosts(vertex->getCost(), edgeCost), neighbor->getCost()))
+                    // TODO(avk): Filter some neighbors out if the vertex was already expanded.
+                    const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
+                    if (!neighbor->isInTree())
                     {
-                        // Ignore this neighbor.
-                        continue;
-                    }
-                    // vertex is strictly a better parent to neighbor. Rewire.
-                    this->replaceParent(vertex, neighbor, edgeCost);
-                }
-                queuePtr_->enqueueVertex(neighbor);
-            }
+                        // Add a parent to the child.
+                        neighbor->addParent(vertex, edgeCost);
 
-            // Mark that this vertex has been expanded.
-            // TODO(avk): I want to know if this vertex was expanded before.
-            vertex->registerExpansion();
+                        // Add a child to the parent.
+                        vertex->addChild(neighbor);
+
+                        // Add the vertex to the set of vertices.
+                        graphPtr_->registerAsVertex(neighbor);
+                    }
+                    else
+                    {
+                        if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
+                                costHelpPtr_->combineCosts(vertex->getCost(), edgeCost), neighbor->getCost()))
+                        {
+                            // Ignore this neighbor.
+                            continue;
+                        }
+                        // vertex is strictly a better parent to neighbor. Rewire.
+                        this->replaceParent(vertex, neighbor, edgeCost);
+                    }
+                    queuePtr_->enqueueVertex(neighbor);
+                }
+
+                // Mark that this vertex has been expanded.
+                // TODO(avk): I want to know if this vertex was expanded before.
+                vertex->registerExpansion();
+            }
         }
 
-        void IGLS::evaluate()
+        void IGLS::evaluate(const VertexPtrPair &edge)
         {
-            VertexPtrVector reverseSubpath = pathFromVertexToStart(queuePtr_->getFrontVertex());
-
-            // Use the selector to process evaluation of an edge.
-            VertexPtrPair edge;
             if (!checkEdge(edge))
             {
                 // TODO(avk): Blacklist this edge.
