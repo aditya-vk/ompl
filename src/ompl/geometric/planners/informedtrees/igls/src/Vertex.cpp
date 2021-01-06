@@ -396,12 +396,12 @@ namespace ompl
             childIdWhitelist_.emplace(vertex->getId());
         }
 
-        bool IGLS::Vertex::isBlacklistedAsChild(const VertexConstPtr &vertex) const
+        bool IGLS::Vertex::hasBlacklistedChild(const VertexConstPtr &vertex) const
         {
             return childIdBlacklist_.find(vertex->getId()) != childIdBlacklist_.end();
         }
 
-        bool IGLS::Vertex::isWhitelistedAsChild(const VertexConstPtr &vertex) const
+        bool IGLS::Vertex::hasWhitelistedChild(const VertexConstPtr &vertex) const
         {
             return childIdWhitelist_.find(vertex->getId()) != childIdWhitelist_.end();
         }
@@ -414,6 +414,11 @@ namespace ompl
         void IGLS::Vertex::clearWhitelist()
         {
             childIdWhitelist_.clear();
+        }
+
+        bool IGLS::Vertex::hasEvaluatedChild(const VertexConstPtr &vertex) const
+        {
+            return (hasBlacklistedChild(vertex) || hasWhitelistedChild(vertex));
         }
 
         ompl::base::Cost IGLS::Vertex::getCost() const

@@ -11,7 +11,7 @@ namespace ompl
     {
         /** @anchor Selector
         @par Short description
-        A class to determine if the search need to pause for collision checking edges.
+        A class to determine if the search need to pause for collision checking edges. */
 
         /** \brief An Event.*/
         class IGLS::Selector

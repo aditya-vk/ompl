@@ -231,6 +231,9 @@ namespace ompl
             /** \brief Replace the parent edge with the given new edge and cost */
             void replaceParent(const VertexPtr &parent, const VertexPtr &neighbor, const ompl::base::Cost &edgeCost);
 
+            /** \brief Checks for a series of conditions for if this edge needs to be considered */
+            bool edgeCanBeConsideredForExpansion(const VertexPtr &parent, const VertexPtr &neighbor);
+
             /** \brief The special work that needs to be done when a collision-free path has been computed. */
             void registerSolution();
 

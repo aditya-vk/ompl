@@ -129,16 +129,19 @@ namespace ompl
             void whitelistChild(const VertexConstPtr &vertex);
 
             /** \brief Returns true if the vertex is blacklisted as a child of this vertex. */
-            bool isBlacklistedAsChild(const VertexConstPtr &vertex) const;
+            bool hasBlacklistedChild(const VertexConstPtr &vertex) const;
 
             /** \brief Returns true if the vertex is blacklisted as a child of this vertex. */
-            bool isWhitelistedAsChild(const VertexConstPtr &vertex) const;
+            bool hasWhitelistedChild(const VertexConstPtr &vertex) const;
 
             /** \brief Clears the blacklist. */
             void clearBlacklist();
 
             /** \brief Clears the whitelist. */
             void clearWhitelist();
+
+            /** \brief Check if this vertex has an edge evaluated to the given vertex */
+            bool hasEvaluatedChild(const VertexConstPtr &vertex) const;
 
             /** \brief Get the cost-to-come of a vertex. Return infinity if the edge is disconnected. */
             ompl::base::Cost getCost() const;

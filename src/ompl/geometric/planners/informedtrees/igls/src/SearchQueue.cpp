@@ -363,7 +363,8 @@ namespace ompl
         void IGLS::SearchQueue::enqueueNeighborConditionally(const VertexPtr &parent, const VertexPtr &child)
         {
             // Don't enqueue the edge if it's blacklisted.
-            if (parent->isBlacklistedAsChild(child))
+            // TODO(avk): Or the other way around.
+            if (parent->hasBlacklistedChild(child))
             {
                 return;
             }

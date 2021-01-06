@@ -349,30 +349,66 @@ namespace ompl
 
         void IGLS::iterate()
         {
-            // TODO(avk): Sampling a new batch.
-            // Publishing intermediate solution.
-            // Fixing the search depending on whether vertex was previously expanded (old).
-
             // Keep track of how many iterations we've performed.
             ++numIterations_;
 
-            // Lazy search upto a horizon.
-            search();
-
-            if (queuePtr_->isEmpty())
+            // If search is complete at the current approximation.
+            // Improve the approximation and continue improving solution.
+            if (isSearchDone_ || queuePtr_->isEmpty())
             {
-                return;
-            }
+                // Prune the graph if enabled.
+                if (isPruningEnabled_)
+                {
+                    this->prune();
+                }
 
-            // Select an edge along the most promising subpath.
-            VertexPtrVector reverseSubpath = pathFromVertexToStart(queuePtr_->getFrontVertex());
-            VertexPtrPair edge = selector_->edgeToEvaluate(reverseSubpath);
-            if (edge == std::pair<VertexPtr, VertexPtr>())
-            {
-                hasExactSolution_ = true;
-                return;
+                // Add a new batch.
+                this->newBatch();
+
+                // Clear the search queue.
+                queuePtr_->clear();
+
+                // Begin search with the start vertex in the queue.
+                queuePtr_->enqueueVertex(graphPtr_->getStartVertex());
+
+                // Time to exhaust search on the new approximation.
+                isSearchDone_ = false;
             }
-            evaluate(edge);
+            // TODO(avk)
+            // Publishing intermediate solution.
+            // Fixing the search depending on whether vertex was previously expanded (old).
+
+            // Interleave lazy seach and edge evaluation until termination condition or
+            // search exhausts at the current approximation.
+            while (!isSearchDone_)
+            {
+                // Lazy seach.
+                search();
+
+                if (queuePtr_->isEmpty())
+                {
+                    // Search has exhausted due to the lack of a solution.
+                    isSearchDone_ = true;
+                    break;
+                }
+
+                // Select an edge along the most promising subpath.
+                VertexPtrVector reverseSubpath = pathFromVertexToStart(queuePtr_->getFrontVertex());
+                VertexPtrPair edge = selector_->edgeToEvaluate(reverseSubpath);
+
+                // Check if we have computed a new solution.
+                // Unless a path to the goal is completely evaluated, selector always returns an edge.
+                if (edge == std::pair<VertexPtr, VertexPtr>())
+                {
+                    // Update the solution and publish to other datastructures.
+                    this->registerSolution();
+
+                    // Search has exhausted since we have a solution.
+                    isSearchDone_ = true;
+                    break;
+                }
+                evaluate(edge);
+            }
         }
 
         void IGLS::search()
@@ -401,11 +437,18 @@ namespace ompl
                 VertexPtrVector neighbors;
                 graphPtr_->nearestSamples(vertex, &neighbors);
 
-                // TODo(avk): If the vertex v has already been expanded before, we don't want to cascade a rewire.
+                // TODO(avk): If the vertex v has already been expanded before, we don't want to cascade a rewire.
                 // and only want to consider nearest samples.
                 for (const auto &neighbor : neighbors)
                 {
+                    if (!edgeCanBeConsideredForExpansion(vertex, neighbor))
+                    {
+                        continue;
+                    }
+
                     // TODO(avk): Filter some neighbors out if the vertex was already expanded.
+                    // TODO(avk): Filter edges if they were found to be in collision previously.
+                    // TODO(avk): The following should be moved out of this function for readability.
                     const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
                     if (!neighbor->isInTree())
                     {
@@ -442,12 +485,12 @@ namespace ompl
         {
             if (!checkEdge(edge))
             {
-                // TODO(avk): Blacklist this edge.
+                edge.first->blacklistChild(edge.second);
                 repair();
             }
             else
             {
-                // TODO(avk): Whitelist the edge.
+                edge.first->whitelistChild(edge.second);
             }
         }
 
@@ -634,22 +677,13 @@ namespace ompl
         bool IGLS::checkEdge(const VertexConstPtrPair &edge)
         {
 #ifdef IGLS_DEBUG
-            if (edge.first->isBlacklistedAsChild(edge.second))
+            if (edge.first->hasEvalautedChild(edge.second) || edge.second->hasEvaluatedChild(edge.first))
             {
-                throw ompl::Exception("A blacklisted edge made it into the edge queue.");
+                throw ompl::Exception("An evaluated edge is being collision-checked again!");
             }
 #endif  // IGLS_DEBUG
-        // If this is a whitelisted edge, there's no need to do (repeat) the collision checking.
-        // TODO(avk): This needs to be revisited in the lazy setting.
-            if (edge.first->isWhitelistedAsChild(edge.second))
-            {
-                return true;
-            }
-            else  // This is a new edge, we need to check whether it is feasible.
-            {
-                ++numEdgeCollisionChecks_;
-                return Planner::si_->checkMotion(edge.first->state(), edge.second->state());
-            }
+            ++numEdgeCollisionChecks_;
+            return Planner::si_->checkMotion(edge.first->state(), edge.second->state());
         }
 
         void IGLS::replaceParent(const VertexPtr &parent, const VertexPtr &neighbor, const ompl::base::Cost &edgeCost)
@@ -675,6 +709,31 @@ namespace ompl
 
             // Add the child to the parent.
             parent->addChild(neighbor);
+        }
+
+        bool IGLS::edgeCanBeConsideredForExpansion(const VertexPtr &vertex, const VertexPtr &neighbor)
+        {
+            // If the neighbor is the root, or same as the vertex, ignore.
+            if (neighbor->isRoot() || neighbor->getId() == vertex->getId())
+            {
+                return true;
+            }
+            // If the neighbors's parent is already the current vertex, ignore.
+            if (neighbor->getParent()->getId() == vertex->getId())
+            {
+                return true;
+            }
+            // If the neighbor is the vertex's parent, avoid this loop!
+            if (!vertex->isRoot() && neighbor->getId() == vertex->getParent()->getId())
+            {
+                return true;
+            }
+            // If the edge has been evaluated previously and is in collision, ignore!
+            if (vertex->hasBlacklistedChild(neighbor) || neighbor->hasBlacklistedChild(vertex))
+            {
+                return true;
+            }
+            return false;
         }
 
         void IGLS::registerSolution()
