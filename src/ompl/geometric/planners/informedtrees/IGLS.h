@@ -196,7 +196,7 @@ namespace ompl
             void evaluate(const VertexPtrPair &edge);
 
             /** \brief Repairs the search tree. */
-            void repair();
+            void repair(const VertexPtr &root);
 
             /** \brief Initialize variables for a new batch. */
             void newBatch();
@@ -231,8 +231,14 @@ namespace ompl
             /** \brief Replace the parent edge with the given new edge and cost */
             void replaceParent(const VertexPtr &parent, const VertexPtr &neighbor, const ompl::base::Cost &edgeCost);
 
-            /** \brief Checks for a series of conditions for if this edge needs to be considered */
+            /** \brief Checks for a series of conditions for if this edge can be used for expansion. */
             bool edgeCanBeConsideredForExpansion(const VertexPtr &parent, const VertexPtr &neighbor);
+
+            /** \brief Checks for a series of conditions for if this edge can be used to rewire. */
+            bool edgeCanBeConsideredForRepair(const VertexPtr &parent, const VertexPtr &child);
+
+            /** \brief Resets properties of vertex and its subtree, and tracks them in inconsistentVertices. */
+            void resetVertexPropertiesForRepair(const VertexPtr &vertex, VertexPtrVector &inconsistentVertices);
 
             /** \brief The special work that needs to be done when a collision-free path has been computed. */
             void registerSolution();
@@ -336,6 +342,11 @@ namespace ompl
              * solution cost. Remaining vertex queue "size" and edge queue size are accessible via
              * vertexQueueSizeProgressProperty and edgeQueueSizeProgressProperty, respectively. */
             std::shared_ptr<SearchQueue> queuePtr_{nullptr};
+
+            /** \brief The queue of vertices in an invalidated subtree that need thei g-values to be
+             * revised and made consistent with recent collision evaluations. This queue is used
+             * as part of an LPA* style of tree repair. */
+            std::shared_ptr<SearchQueue> repairQueuePtr_{nullptr};
 
             /** \brief The event that defines the toggle between lazy search and evaluation. */
             std::shared_ptr<Event> event_{nullptr};

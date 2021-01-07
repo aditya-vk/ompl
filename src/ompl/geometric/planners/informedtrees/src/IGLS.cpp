@@ -41,6 +41,7 @@ namespace ompl
             costHelpPtr_ = std::make_shared<CostHelper>();
             graphPtr_ = std::make_shared<ImplicitGraph>([this]() { return getName(); });
             queuePtr_ = std::make_shared<SearchQueue>([this]() { return getName(); });
+            repairQueuePtr_ = std::make_shared<SearchQueue>([this]() { return getName(); });
 
             // Specify my planner specs:
             Planner::specs_.recognizedGoal = ompl::base::GOAL_SAMPLEABLE_REGION;
@@ -161,6 +162,7 @@ namespace ompl
 
                 // Setup the queue
                 queuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
+                repairQueuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
 
                 // Setup the event and the selector.
                 event_ = std::make_shared<Event>(graphPtr_.get());
@@ -195,6 +197,7 @@ namespace ompl
             costHelpPtr_->reset();
             graphPtr_->reset();
             queuePtr_->reset();
+            repairQueuePtr_->reset();
 
             // Reset the various calculations and convenience containers. Will be recalculated on setup
             bestCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
@@ -486,7 +489,7 @@ namespace ompl
             if (!checkEdge(edge))
             {
                 edge.first->blacklistChild(edge.second);
-                repair();
+                repair(edge.second);
             }
             else
             {
@@ -494,8 +497,112 @@ namespace ompl
             }
         }
 
-        void IGLS::repair()
+        void IGLS::resetVertexPropertiesForRepair(const VertexPtr &vertex, VertexPtrVector &inconsistentVertices)
         {
+            // Remove from the search queue. This clears its vertex queue lookup.
+            // If the vertex is not in the queue, the iterator is null anyway.
+            queuePtr_->removeVertexFromQueue(vertex);
+
+            // Clear the parent. This resets the cost to come to infinity.
+            // Do not cascade the costs further down. We will do it manually here.
+            vertex->removeParent(false);
+
+            // Mark the vertex as inconsistent.
+            vertex->markInconsistent();
+
+            // Add the vertex to the set of inconsistent vertices.
+            inconsistentVertices.push_back(vertex);
+
+            // Do the same for all the children.
+            VertexPtrVector children;
+            vertex->getChildren(&children);
+            for (const auto &child : children)
+            {
+                resetVertexPropertiesForRepair(child, inconsistentVertices);
+            }
+        }
+
+        void IGLS::repair(const VertexPtr &root)
+        {
+            // Recursive lambda might have been cleaner if possible in c++.
+            std::vector<VertexPtr> inconsistentVertices;
+            resetVertexPropertiesForRepair(root, inconsistentVertices);
+
+            // Find the best parent for each inconsistent vertex.
+            for (const auto &vertex : inconsistentVertices)
+            {
+                // Get the neighbors.
+                VertexPtrVector neighbors;
+                graphPtr_->nearestSamples(vertex, &neighbors);
+                for (const auto &neighbor : neighbors)
+                {
+                    // Ignore invalid parents.
+                    if (!edgeCanBeConsideredForRepair(neighbor, vertex))
+                    {
+                        continue;
+                    }
+                    const auto edgeCost = costHelpPtr_->trueEdgeCost(neighbor, vertex);
+                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
+                            costHelpPtr_->combineCosts(neighbor->getCost(), edgeCost), vertex->getCost()))
+                    {
+                        // Ignore this neighbor. It has a better parent already.
+                        continue;
+                    }
+                    // We have a valid neighbor. Rewire.
+                    vertex->addParent(neighbor, edgeCost);
+                }
+                repairQueuePtr_->enqueueVertex(vertex);
+                // TODO(avk): Add an assert in search() to ensure no inconsistent vertices.
+            }
+
+            while (!repairQueuePtr_->isEmpty())
+            {
+                // Get the most promising vertex.
+                VertexPtr vertex = queuePtr_->popFrontVertex();
+
+                // Assert that the top vertex in the queue is inconsistent.
+                // Whether it has found a parent or not, it is not consistent.
+                assert(!vertex->isConsistent());
+                vertex->markConsistent();
+
+                // If the vertex has found a parent, give it a family.
+                if (vertex->hasParent())
+                {
+                    // It's cost has already been updated. Mark it consistent.
+                    vertex->markConsistent();
+
+                    // Let the parent know of its new kid.
+                    vertex->getParent()->addChild(vertex);
+
+                    // If we can trigger the event, add to search queue.
+                    if (event_->isTriggered(vertex))
+                    {
+                        queuePtr_->enqueueVertex(vertex);
+                    }
+
+                    // Check if this vertex can start its own family.
+                    VertexPtrVector neighbors;
+                    graphPtr_->nearestSamples(vertex, &neighbors);
+                    for (const auto &neighbor : neighbors)
+                    {
+                        if (neighbor->isConsistent() || !edgeCanBeConsideredForExpansion(vertex, neighbor))
+                        {
+                            continue;
+                        }
+                        const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
+                        if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
+                                costHelpPtr_->combineCosts(vertex->getCost(), edgeCost), neighbor->getCost()))
+                        {
+                            // Ignore this neighbor. It has a better parent already.
+                            continue;
+                        }
+                        // Vertex is a strictly better parent to neighbor.
+                        vertex->addParent(neighbor, edgeCost);
+                    }
+                }
+            }
+            // TODO(avk): Optimization: Stop processing vertices if the topcost here is greater than
+            // the topcost in the open list. Make sure to reset the vertex lookups etc though.
             return;
         }
 
@@ -730,6 +837,32 @@ namespace ompl
             }
             // If the edge has been evaluated previously and is in collision, ignore!
             if (vertex->hasBlacklistedChild(neighbor) || neighbor->hasBlacklistedChild(vertex))
+            {
+                return false;
+            }
+            return true;
+        }
+
+        bool IGLS::edgeCanBeConsideredForRepair(const VertexPtr &parent, const VertexPtr &child)
+        {
+            // Determine if the neighbor is valid potential parent.
+            if (!parent->isInTree())
+            {
+                return false;
+            }
+            if (event_->isTriggered(parent))
+            {
+                return false;
+            }
+            if (parent->getId() == child->getId())
+            {
+                return false;
+            }
+            if (!parent->isConsistent())
+            {
+                return false;
+            }
+            if (parent->hasBlacklistedChild(child) || child->hasBlacklistedChild(parent))
             {
                 return false;
             }
