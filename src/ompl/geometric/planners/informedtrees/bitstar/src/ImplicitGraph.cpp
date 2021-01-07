@@ -975,7 +975,7 @@ namespace ompl
                 }
                 // Log the focus + cost + graph. Uncomment this if you want to visualize the
                 // build of a single instance.
-                // generateLog();
+                generateLog();
                 newSamplesIteration_++;
                 VertexPtrVector newStates{};
                 newStates.reserve(numRequiredSamples);
@@ -1022,7 +1022,7 @@ namespace ompl
                 }
                 // Log the focus + cost + graph. Uncomment this if you want to visualize the
                 // build of a single instance.
-                // generateLog();
+                generateLog();
                 newSamplesIteration_++;
 
                 // Add the new state as a sample.
@@ -1533,156 +1533,137 @@ namespace ompl
 
         void BITstar::ImplicitGraph::generateLog() const
         {
-            //     // Save start, focus, goal, g(v), c(xi*).
-            //     std::vector<double> position;
-            //     std::ofstream logfile;
+            // Save start, focus, goal, g(v), c(xi*).
+            std::vector<double> position;
+            std::ofstream logfile;
 
-            //     if (hasExactSolution_)
-            //     {
-            //         std::string focusDataFile = "focus_" + std::to_string(newSamplesIteration_) + ".txt";
-            //         logfile.open(focusDataFile, std::ios_base::app);
+            if (hasExactSolution_)
+            {
+                std::string focusDataFile = "focus_" + std::to_string(newSamplesIteration_) + ".txt";
+                logfile.open(focusDataFile, std::ios_base::app);
 
-            //         spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
-            //         for (const auto &p : position)
-            //         {
-            //             logfile << p << " ";
-            //         }
-            //         logfile << std::endl;
+                spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
 
-            //         spaceInformation_->getStateSpace()->copyToReals(position, goalVertices_.front()->state());
-            //         for (const auto &p : position)
-            //         {
-            //             logfile << p << " ";
-            //         }
-            //         logfile << std::endl;
+                spaceInformation_->getStateSpace()->copyToReals(position, goalVertices_.front()->state());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
 
-            //         // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal.
-            //         if (!useLocalSampling_)
-            //         {
-            //             spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
-            //             for (const auto &p : position)
-            //             {
-            //                 logfile << p << " ";
-            //             }
-            //             logfile << std::endl;
-            //             logfile << "0 0" << std::endl;
-            //             logfile << solutionCost_ << " 0" << std::endl;
-            //         }
-            //         else
-            //         {
-            //             spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
-            //             for (const auto &p : position)
-            //             {
-            //                 logfile << p << " ";
-            //             }
-            //             logfile << std::endl;
-            //             logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
-            //             logfile << solutionCost_ << " 0" << std::endl;
-            //         }
+                // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal.
+                if (!useLocalSampling_)
+                {
+                    spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                    logfile << "0 0" << std::endl;
+                    logfile << solutionCost_ << " 0" << std::endl;
+                }
+                else
+                {
+                    spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                    logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
+                    logfile << solutionCost_ << " 0" << std::endl;
+                }
+                logfile.close();
+            }
 
-            //         logfile.close();
-            //     }
+            // Save the graph.
+            std::string samplesDataFile = "samples_" + std::to_string(newSamplesIteration_) + ".txt";
+            logfile.open(samplesDataFile, std::ios_base::app);
 
-            //     // Save the graph.
-            //     std::string samplesDataFile = "samples_" + std::to_string(newSamplesIteration_) + ".txt";
-            //     logfile.open(samplesDataFile, std::ios_base::app);
-            //     if (static_cast<bool>(freeStateNN_))
-            //     {
-            //         VertexPtrVector samples;
-            //         freeStateNN_->list(samples);
+            VertexPtrVector samples;
+            samples_->list(samples);
 
-            //         for (const auto &freeSample : samples)
-            //         {
-            //             spaceInformation_->getStateSpace()->copyToReals(position, freeSample->state());
-            //             for (const auto &p : position)
-            //             {
-            //                 logfile << p << " ";
-            //             }
-            //             logfile << std::endl;
-            //         }
-            //     }
-            //     logfile.close();
+            for (const auto &freeSample : samples)
+            {
+                spaceInformation_->getStateSpace()->copyToReals(position, freeSample->state());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
+            }
+            logfile.close();
 
-            //     if (static_cast<bool>(vertexNN_))
-            //     {
-            //         VertexPtrVector vertices;
-            //         vertexNN_->list(vertices);
+            std::string verticesDataFile = "vertices_" + std::to_string(newSamplesIteration_) + ".txt";
+            logfile.open(verticesDataFile, std::ios_base::app);
+            for (const auto &vertex : samples)
+            {
+                if (!vertex->isInTree())
+                {
+                    continue;
+                }
+                if (!vertex->isRoot())
+                {
+                    spaceInformation_->getStateSpace()->copyToReals(position, vertex->state());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    spaceInformation_->getStateSpace()->copyToReals(position, vertex->getParent()->state());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                }
+            }
+            logfile.close();
 
-            //         if (vertices.size() > 1u)
-            //         {
-            //             std::string verticesDataFile = "vertices_" + std::to_string(newSamplesIteration_) + ".txt";
-            //             logfile.open(verticesDataFile, std::ios_base::app);
+            // Save the path only if one exists.
+            if (hasExactSolution_)
+            {
+                std::string pathDataFile = "path_" + std::to_string(newSamplesIteration_) + ".txt";
+                logfile.open(pathDataFile, std::ios_base::app);
+                VertexConstPtr curVertex = goalVertices_.front();
 
-            //             for (const auto &vertex : vertices)
-            //             {
-            //                 if (!vertex->isRoot())
-            //                 {
-            //                     spaceInformation_->getStateSpace()->copyToReals(position, vertex->state());
-            //                     for (const auto &p : position)
-            //                     {
-            //                         logfile << p << " ";
-            //                     }
-            //                     spaceInformation_->getStateSpace()->copyToReals(position,
-            //                     vertex->getParentConst()->state()); for (const auto &p : position)
-            //                     {
-            //                         logfile << p << " ";
-            //                     }
-            //                     logfile << std::endl;
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     logfile.close();
-
-            //     // Save the path only if one exists.
-            //     if (hasExactSolution_)
-            //     {
-            //         std::string pathDataFile = "path_" + std::to_string(newSamplesIteration_) + ".txt";
-            //         logfile.open(pathDataFile, std::ios_base::app);
-            //         VertexConstPtr curVertex = goalVertices_.front();
-
-            //         curVertex = goalVertices_.front();
-            //         spaceInformation_->getStateSpace()->copyToReals(position, curVertex->state());
-            //         for (const auto &p : position)
-            //         {
-            //             logfile << p << " ";
-            //         }
-            //         logfile << std::endl;
-            //         for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex =
-            //         curVertex->getParentConst())
-            //         {
-            //             spaceInformation_->getStateSpace()->copyToReals(position,
-            //             curVertex->getParentConst()->state()); for (const auto &p : position)
-            //             {
-            //                 logfile << p << " ";
-            //             }
-            //             logfile << std::endl;
-            //         }
-            //     }
-            //     logfile.close();
+                curVertex = goalVertices_.front();
+                spaceInformation_->getStateSpace()->copyToReals(position, curVertex->state());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
+                for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParent())
+                {
+                    spaceInformation_->getStateSpace()->copyToReals(position, curVertex->getParent()->state());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                }
+            }
+            logfile.close();
         }
 
         void BITstar::ImplicitGraph::generateSamplesCostLog() const
         {
-            //     // Save the cost and the total number of samples.
-            //     std::size_t graphSize = 0;
-            //     if (static_cast<bool>(vertexNN_))
-            //     {
-            //         VertexPtrVector vertices;
-            //         vertexNN_->list(vertices);
-            //         graphSize += vertices.size();
-            //     }
-            //     if (static_cast<bool>(freeStateNN_))
-            //     {
-            //         VertexPtrVector samples;
-            //         vertexNN_->list(samples);
-            //         graphSize += samples.size();
-            //     }
-            //     std::ofstream logfile;
-            //     assert(hasExactSolution_);
-            //     std::string solutionDataFile = "samplesAndCost_" + std::to_string(iterationNumber_) + ".txt";
-            //     logfile.open(solutionDataFile, std::ios_base::app);
-            //     logfile << graphSize << " " << solutionCost_ << std::endl;
+            // Save the cost and the total number of samples.
+            VertexPtrVector samples;
+            samples_->list(samples);
+            std::size_t graphSize = samples.size();
+
+            std::ofstream logfile;
+            assert(hasExactSolution_);
+            std::string solutionDataFile = "samplesAndCost_" + std::to_string(iterationNumber_) + ".txt";
+            logfile.open(solutionDataFile, std::ios_base::app);
+            logfile << graphSize << " " << solutionCost_ << std::endl;
         }
 
         void BITstar::ImplicitGraph::setIterationNumber(int iteration)

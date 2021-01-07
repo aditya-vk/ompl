@@ -391,7 +391,7 @@ namespace ompl
                 // Any solution
                 this->publishSolution();
                 // Uncomment this when you want to log the progress of an algorithm.
-                // graphPtr_->generateLog();
+                graphPtr_->generateLog();
             }
             // No else, no solution to publish
 
