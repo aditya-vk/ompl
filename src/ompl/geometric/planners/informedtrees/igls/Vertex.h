@@ -161,8 +161,19 @@ namespace ompl
             /** \brief Mark the vertex as unpruned. */
             void markUnpruned();
 
+            /** \brief Mark the vertex as inconsistent. */
+            void markInconsistent();
+
+            /** \brief Mark the vertex as consistent. */
+            void markConsistent();
+
+            /** \brief Returns true if the vertex is consistent. */
+            bool isConsistent() const;
+
             // ---
-            // Vertex queue lookups.
+            // Vertex queue lookups. Although IGLS has two different queues for search and repair,
+            // a vertex can only be in one queue at any given time and it's iterator in that queue
+            // is held by the lookup.
             // ---
             /** \brief Sets the iterator in the queue that corresponds to this vertex. */
             void setVertexQueueLookup(const SearchQueue::VertexQueueElemPtr &element);
@@ -207,6 +218,9 @@ namespace ompl
             /** \brief Whether the vertex is pruned. Vertices throw if any member function other than isPruned() is
              * access after they are pruned. */
             bool isPruned_{false};
+
+            /** \brief Whether the vertex is consistent. */
+            bool isConsistent_{true};
 
             /** \brief The depth of the state.  */
             unsigned int depth_{0u};

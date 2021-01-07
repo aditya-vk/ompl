@@ -489,6 +489,21 @@ namespace ompl
             isPruned_ = false;
         }
 
+        void IGLS::Vertex::markInconsistent()
+        {
+            isConsistent_ = false;
+        }
+
+        void IGLS::Vertex::markConsistent()
+        {
+            isConsistent_ = true;
+        }
+
+        bool IGLS::Vertex::isConsistent() const
+        {
+            return isConsistent_;
+        }
+
         void IGLS::Vertex::setVertexQueueLookup(const SearchQueue::VertexQueueElemPtr &elementPtr)
         {
             vertexQueueLookup_ = elementPtr;

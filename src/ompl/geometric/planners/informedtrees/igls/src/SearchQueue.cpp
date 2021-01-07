@@ -89,7 +89,7 @@ namespace ompl
             ASSERT_SETUP
 
             // If we already have the vertex in the queue, we need to update its value.
-            VertexQueueElemPtr updateVertex = nullptr;
+            VertexQueueElemPtr updateVertex = vertex->getVertexQueueLookup();
             if (updateVertex)
             {
                 updateVertex->data.first = this->createSortKey(vertex);
