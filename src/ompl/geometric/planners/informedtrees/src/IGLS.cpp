@@ -205,7 +205,6 @@ namespace ompl
             prunedCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
             prunedMeasure_ = 0.0;
             hasExactSolution_ = false;
-            stopLoop_ = false;
             numBatches_ = 0u;
             numPrunings_ = 0u;
             numIterations_ = 0u;
@@ -232,21 +231,18 @@ namespace ompl
             }
             OMPL_INFORM("%s: Searching for a solution to the given planning problem.", Planner::getName().c_str());
 
-            // Reset the manual stop to the iteration loop:
-            stopLoop_ = false;
-
             // Assuming that the start and goal are provided with pdef and processed in setup().
             // Insert the start vertex into the queue.
             queuePtr_->enqueueVertex(graphPtr_->getStartVertex());
 
             /**
              * Iterate as long as:
-             * We're allowed (ptc == false && stopLoop_ == false), AND
+             * We're allowed (ptc == false), AND
              * costHelpPtr_->isSatisfied(bestCost) == false, AND
              * There is a theoretically better solution:
              * (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_) == true)
              */
-            while (!ptc && !stopLoop_ && !costHelpPtr_->isSatisfied(bestCost_) &&
+            while (!ptc && !costHelpPtr_->isSatisfied(bestCost_) &&
                    (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_)))
             {
                 this->iterate();
@@ -377,9 +373,7 @@ namespace ompl
                 // Time to exhaust search on the new approximation.
                 isSearchDone_ = false;
             }
-            // TODO(avk)
-            // Publishing intermediate solution.
-            // Fixing the search depending on whether vertex was previously expanded (old).
+            // TODO(avk): Fixing the search depending on whether vertex was previously expanded (old).
 
             // Interleave lazy seach and edge evaluation until termination condition or
             // search exhausts at the current approximation.
@@ -421,10 +415,9 @@ namespace ompl
             {
                 // Get the most promising vertex.
                 VertexPtr vertex = queuePtr_->popFrontVertex();
+                assert(vertex->isConsistent());
 
-                // Assert that the top vertex in the queue has an f-value less than the current best cost.
-                assert(costHelpPtr_->isCostBetterThanOrEquivalentTo(
-                    costHelpPtr_->combineCosts(vertex->getCost(), costHelpPtr_->costToGoHeuristic(vertex)), bestCost_));
+                // TODO(avk): Why can I not assert that f-value < bestCost_?
 
                 // Expand the vertex to populate the search queue.
                 // First process already existing children.
@@ -432,26 +425,27 @@ namespace ompl
                 vertex->getChildren(&currentChildren);
                 for (const auto &child : currentChildren)
                 {
-                    // TODO(avk): This enqueue should happen conditionally, private function.
-                    queuePtr_->enqueueVertex(child);
+                    // Old children that aren't useful anymore need not be considered.
+                    if (queuePtr_->canPossiblyImproveCurrentSolution(child))
+                    {
+                        queuePtr_->enqueueVertex(child);
+                    }
                 }
 
-                // Now process new neighbors.
+                // Now process neighbors.
                 VertexPtrVector neighbors;
                 graphPtr_->nearestSamples(vertex, &neighbors);
-
-                // TODO(avk): If the vertex v has already been expanded before, we don't want to cascade a rewire.
-                // and only want to consider nearest samples.
                 for (const auto &neighbor : neighbors)
                 {
+                    if (!queuePtr_->canPossiblyImproveCurrentSolution(neighbor))
+                    {
+                        continue;
+                    }
                     if (!edgeCanBeConsideredForExpansion(vertex, neighbor))
                     {
                         continue;
                     }
 
-                    // TODO(avk): Filter some neighbors out if the vertex was already expanded.
-                    // TODO(avk): Filter edges if they were found to be in collision previously.
-                    // TODO(avk): The following should be moved out of this function for readability.
                     const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
                     if (!neighbor->isInTree())
                     {
@@ -466,6 +460,13 @@ namespace ompl
                     }
                     else
                     {
+                        // If this vertex was previously expanded to vertices, do not repeat operation.
+                        // TODO(avk): What if the neighbor was just added to the search tree though?
+                        if (vertex->hasEverBeenExpandedToVertices())
+                        {
+                            continue;
+                        }
+
                         if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
                                 costHelpPtr_->combineCosts(vertex->getCost(), edgeCost), neighbor->getCost()))
                         {
@@ -473,14 +474,16 @@ namespace ompl
                             continue;
                         }
                         // vertex is strictly a better parent to neighbor. Rewire.
+                        // TODO(avk): This replacement is cascading cost updates to the entire subtree.
+                        // Is that what you want?? If not, you might want to remove child.parent == vertex
+                        // in the edgeCanBeConsidered() function.
                         this->replaceParent(vertex, neighbor, edgeCost);
                     }
                     queuePtr_->enqueueVertex(neighbor);
                 }
-
                 // Mark that this vertex has been expanded.
-                // TODO(avk): I want to know if this vertex was expanded before.
                 vertex->registerExpansion();
+                vertex->registerExpansionToVertices(true);
             }
         }
 
@@ -489,6 +492,7 @@ namespace ompl
             if (!checkEdge(edge))
             {
                 edge.first->blacklistChild(edge.second);
+                edge.first->removeChild(edge.second);
                 repair(edge.second);
             }
             else
@@ -520,6 +524,7 @@ namespace ompl
             {
                 resetVertexPropertiesForRepair(child, inconsistentVertices);
             }
+            vertex->clearChildren();
         }
 
         void IGLS::repair(const VertexPtr &root)
@@ -552,13 +557,12 @@ namespace ompl
                     vertex->addParent(neighbor, edgeCost);
                 }
                 repairQueuePtr_->enqueueVertex(vertex);
-                // TODO(avk): Add an assert in search() to ensure no inconsistent vertices.
             }
 
             while (!repairQueuePtr_->isEmpty())
             {
                 // Get the most promising vertex.
-                VertexPtr vertex = queuePtr_->popFrontVertex();
+                VertexPtr vertex = repairQueuePtr_->popFrontVertex();
 
                 // Assert that the top vertex in the queue is inconsistent.
                 // Whether it has found a parent or not, it is not consistent.
@@ -568,9 +572,6 @@ namespace ompl
                 // If the vertex has found a parent, give it a family.
                 if (vertex->hasParent())
                 {
-                    // It's cost has already been updated. Mark it consistent.
-                    vertex->markConsistent();
-
                     // Let the parent know of its new kid.
                     vertex->getParent()->addChild(vertex);
 
@@ -597,13 +598,22 @@ namespace ompl
                             continue;
                         }
                         // Vertex is a strictly better parent to neighbor.
-                        vertex->addParent(neighbor, edgeCost);
+                        // TODO(avk): I am going to run an expensive operation here for now since addParent()
+                        // by default modifies the queuePtr_.
+                        repairQueuePtr_->removeVertexFromQueue(neighbor);
+                        neighbor->addParent(vertex, edgeCost);
+                        repairQueuePtr_->enqueueVertex(neighbor);
                     }
+                }
+                else
+                {
+                    // Since the vertex is completely removed from the tree, we should allow expansions to search tree
+                    // vertices in the future.
+                    vertex->registerExpansionToVertices(false);
                 }
             }
             // TODO(avk): Optimization: Stop processing vertices if the topcost here is greater than
             // the topcost in the open list. Make sure to reset the vertex lookups etc though.
-            return;
         }
 
         void IGLS::newBatch()
@@ -811,32 +821,35 @@ namespace ompl
             // Remove the parent from the child, not updating costs
             neighbor->removeParent(false);
 
-            // Add the parent to the child. updating the downstream costs.
+            // Add the parent to the child.
+            // TODO(avk): This cascades updates to the entire subtree!
+            // Is that necessary and will it ever be the case that this guy has children?
+            // Yes, this can happen when a new sample is being rewired to an old vertex.
             neighbor->addParent(parent, edgeCost);
 
             // Add the child to the parent.
             parent->addChild(neighbor);
         }
 
-        bool IGLS::edgeCanBeConsideredForExpansion(const VertexPtr &vertex, const VertexPtr &neighbor)
+        bool IGLS::edgeCanBeConsideredForExpansion(const VertexPtr &parent, const VertexPtr &child)
         {
-            // If the neighbor is the root, or same as the vertex, ignore.
-            if (neighbor->isRoot() || neighbor->getId() == vertex->getId())
+            // If the child is the root, or same as the parent, ignore.
+            if (child->isRoot() || child->getId() == parent->getId())
             {
                 return false;
             }
-            // If the neighbors's parent is already the current vertex, ignore.
-            if (neighbor->isInTree() && neighbor->getParent()->getId() == vertex->getId())
+            // If the child's parent is already the parent, ignore.
+            if (child->isInTree() && child->getParent()->getId() == parent->getId())
             {
                 return false;
             }
-            // If the neighbor is the vertex's parent, avoid this loop!
-            if (!vertex->isRoot() && neighbor->getId() == vertex->getParent()->getId())
+            // If the child is the parent's parent, avoid this loop!
+            if (!parent->isRoot() && child->getId() == parent->getParent()->getId())
             {
                 return false;
             }
             // If the edge has been evaluated previously and is in collision, ignore!
-            if (vertex->hasBlacklistedChild(neighbor) || neighbor->hasBlacklistedChild(vertex))
+            if (parent->hasBlacklistedChild(child) || child->hasBlacklistedChild(parent))
             {
                 return false;
             }
@@ -879,9 +892,6 @@ namespace ompl
             // Tell everyone else about it.
             queuePtr_->registerSolutionCost(bestCost_);
             graphPtr_->registerSolutionCost(bestCost_);
-
-            // Stop the solution loop if enabled:
-            stopLoop_ = stopOnSolutionChange_;
 
             // Brag:
             this->goalMessage();

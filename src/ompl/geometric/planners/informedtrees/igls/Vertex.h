@@ -89,8 +89,8 @@ namespace ompl
             /** \brief Returns whether the vertex is expaned on current search. */
             bool isExpandedOnCurrentSearch() const;
 
-            /** \brief Returns whether the vertex has ever been expanded as a rewiring. */
-            bool hasEverBeenExpandedAsRewiring() const;
+            /** \brief Returns whether the vertex has ever been expanded to vertices. */
+            bool hasEverBeenExpandedToVertices() const;
 
             // ---
             // Graph modification.
@@ -121,6 +121,9 @@ namespace ompl
              * Child must still have this vertex listed as its parent and it will also throw an exception if the given
              * vertex pointer is not found. */
             void removeChild(const VertexPtr &oldChild);
+
+            /** \brief Clears children. */
+            void clearChildren();
 
             /** \brief Put the vertex on the blacklist of children. */
             void blacklistChild(const VertexConstPtr &vertex);
@@ -153,7 +156,7 @@ namespace ompl
             void registerExpansion();
 
             /** \brief Mark expansion to vertices. */
-            void registerRewiringExpansion();
+            void registerExpansionToVertices(const bool status);
 
             /** \brief Mark the vertex as pruned. */
             void markPruned();
@@ -179,7 +182,7 @@ namespace ompl
             void setVertexQueueLookup(const SearchQueue::VertexQueueElemPtr &element);
 
             /** \brief Returns the iterator in the queue corresponding to this vertex. */
-            SearchQueue::VertexQueueElemPtr getVertexQueueLookup() const;
+            SearchQueue::VertexQueueElemPtr getVertexQueueLookup();
 
             // Clear a vertex's search queue iterator.
             void clearVertexQueueLookup();
@@ -260,7 +263,7 @@ namespace ompl
             unsigned int expansionSearchId_{0u};
 
             /** \brief Whether this sample has ever been expanded to vertices. */
-            bool hasEverBeenExpandedAsRewiring_{false};
+            bool hasEverBeenExpandedToVertices_{false};
 
             /** \brief A pointer to the shared memory that holds the current search id. */
             const std::shared_ptr<const unsigned int> currentSearchId_;

@@ -104,6 +104,15 @@ namespace ompl
             }
         }
 
+        void IGLS::SearchQueue::enqueueVertexConditonally(const VertexPtr &vertex)
+        {
+            // Enqueue the vertex only if it can possibly improve the current solution.
+            if (this->canPossiblyImproveCurrentSolution(vertex))
+            {
+                this->enqueueVertex(vertex);
+            }
+        }
+
         IGLS::VertexPtr IGLS::SearchQueue::getFrontVertex()
         {
             ASSERT_SETUP
@@ -326,7 +335,7 @@ namespace ompl
                 }
                 else  // If this sample is part of the tree, we need to be a little more careful.
                 {
-                    if (isCascadingOfRewiringsEnabled_ || !parent->hasEverBeenExpandedAsRewiring())
+                    if (isCascadingOfRewiringsEnabled_ || !parent->hasEverBeenExpandedToVertices())
                     {
                         // Remember that this parent is expanded as a rewiring.
                         isExpandedAsRewiring = true;
@@ -355,7 +364,7 @@ namespace ompl
             // If the parent is expanded to a vertex in the tree, it is a rewiring. This needs to be registered.
             if (isExpandedAsRewiring)
             {
-                parent->registerRewiringExpansion();
+                parent->registerExpansionToVertices(true);
             }
         }
 

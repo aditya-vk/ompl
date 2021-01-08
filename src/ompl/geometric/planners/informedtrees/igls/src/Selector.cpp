@@ -24,7 +24,7 @@ namespace ompl
                 const VertexPtr &v = reversePath[i - 1];
                 if (!u->hasEvaluatedChild(v) && !v->hasEvaluatedChild(u))
                 {
-                    edge = std::make_pair(reversePath[0], reversePath[1]);
+                    edge = std::make_pair(u, v);
                     break;
                 }
             }

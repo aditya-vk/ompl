@@ -379,9 +379,6 @@ namespace ompl
             /** \brief The flag whether the current search is done. */
             bool isSearchDone_{false};
 
-            /** \brief A manual stop on the solve loop. */
-            bool stopLoop_{false};
-
             /** \brief The number of batches processed. Accessible via batchesProgressProperty. */
             unsigned int numBatches_{0u};
 

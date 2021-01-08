@@ -79,6 +79,9 @@ namespace ompl
             /** \brief Insert a vertex into the queue. */
             void enqueueVertex(const VertexPtr &vertex);
 
+            /** \brief Insert a vertex into the queue conditionally. */
+            void enqueueVertexConditonally(const VertexPtr &vertex);
+
             /** \brief Update the vertex queue by adding all the potential neighbors from the vertex.*/
             /* This is equivalent to expanding the vertex. */
             void insertNeighborVertices(const VertexPtr &vertex);

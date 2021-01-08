@@ -386,6 +386,11 @@ namespace ompl
 #endif  // IGLS_DEBUG
         }
 
+        void IGLS::Vertex::clearChildren()
+        {
+            children_.clear();
+        }
+
         void IGLS::Vertex::blacklistChild(const VertexConstPtr &vertex)
         {
             childIdBlacklist_.emplace(vertex->getId());
@@ -457,9 +462,9 @@ namespace ompl
             return expansionSearchId_ == *currentSearchId_;
         }
 
-        bool IGLS::Vertex::hasEverBeenExpandedAsRewiring() const
+        bool IGLS::Vertex::hasEverBeenExpandedToVertices() const
         {
-            return hasEverBeenExpandedAsRewiring_;
+            return hasEverBeenExpandedToVertices_;
         }
 
         void IGLS::Vertex::registerExpansion()
@@ -469,9 +474,9 @@ namespace ompl
             expansionSearchId_ = *currentSearchId_;
         }
 
-        void IGLS::Vertex::registerRewiringExpansion()
+        void IGLS::Vertex::registerExpansionToVertices(const bool status)
         {
-            hasEverBeenExpandedAsRewiring_ = true;
+            hasEverBeenExpandedToVertices_ = status;
         }
 
         void IGLS::Vertex::markPruned()
@@ -509,17 +514,16 @@ namespace ompl
             vertexQueueLookup_ = elementPtr;
         }
 
-        IGLS::SearchQueue::VertexQueueElemPtr IGLS::Vertex::getVertexQueueLookup() const
+        IGLS::SearchQueue::VertexQueueElemPtr IGLS::Vertex::getVertexQueueLookup()
         {
+            // Conditionally, check if approximation has changed.
+            this->clearLookupsIfOutdated();
             return vertexQueueLookup_;
         }
 
         void IGLS::Vertex::clearVertexQueueLookup()
         {
             vertexQueueLookup_ = nullptr;
-
-            // TODO(avk): Update the counter?
-            // lookupApproximationId_ = *currentApproximationId_;
         }
 
         void IGLS::Vertex::updateCostAndDepth(bool cascadeUpdates /*= true*/)
@@ -557,7 +561,7 @@ namespace ompl
                 cost_ = costHelpPtr_->combineCosts(parentPtr_->getCost(), edgeCost_);
 
                 // Update the position in the queue if already in the queue.
-                if (vertexQueueLookup_)
+                if (this->getVertexQueueLookup())
                 {
                     queuePtr_->update(vertexQueueLookup_);
                 }
@@ -587,5 +591,19 @@ namespace ompl
             }
             // No else, do not update the children. Let's hope the caller knows what they're doing.
         }
+
+        void IGLS::Vertex::clearLookupsIfOutdated()
+        {
+            // Clean up any old lookups.
+            if (lookupApproximationId_ != *currentApproximationId_)
+            {
+                this->clearVertexQueueLookup();
+
+                // Update the counter.
+                lookupApproximationId_ = *currentApproximationId_;
+            }
+            // No else, this is the same pass through the vertex queue.
+        }
+
     }  // namespace geometric
 }  // namespace ompl
