@@ -40,6 +40,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <fstream>
 
 #include "ompl/base/Planner.h"
 #include "ompl/base/samplers/InformedStateSampler.h"
@@ -556,6 +557,7 @@ namespace ompl
 
             /** \brief Whether to stop the planner as soon as the path changes. */
             bool stopOnSolutionChange_{false};
+            void generateSamplesCostLog() const;
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl

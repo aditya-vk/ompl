@@ -995,6 +995,7 @@ namespace ompl
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
                         graphPtr_->numStatesGenerated(), queuePtr_->numEdgesPopped(), numEdgeCollisionChecks_,
                         graphPtr_->numVerticesConnected(), numRewirings_, graphPtr_->numVertices());
+            generateSamplesCostLog();
         }
 
         void BITstar::endSuccessMessage() const
@@ -1005,6 +1006,7 @@ namespace ompl
                         Planner::getName().c_str(), bestCost_.value(), bestLength_, graphPtr_->numStatesGenerated(),
                         queuePtr_->numEdgesPopped(), numEdgeCollisionChecks_, graphPtr_->numVerticesConnected(),
                         numRewirings_, graphPtr_->numVertices());
+            generateSamplesCostLog();
         }
 
         void BITstar::endFailureMessage() const
@@ -1419,5 +1421,17 @@ namespace ompl
             return std::to_string(queuePtr_->numEdgesPopped());
         }
         /////////////////////////////////////////////////////////////////////////////////////////////
+        void BITstar::generateSamplesCostLog() const
+        {
+            std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
+
+            std::ofstream logfile;
+            assert(hasExactSolution_);
+            std::string solutionDataFile = "BITstar_Metrics.txt";
+            logfile.open(solutionDataFile, std::ios_base::app);
+            logfile << graphPtr_->getCopyOfSamples().size() << " " << numEdgeCollisionChecks_ << " " << bestCost_
+                    << std::endl;
+            logfile.close();
+        }
     }  // namespace geometric
 }  // namespace ompl

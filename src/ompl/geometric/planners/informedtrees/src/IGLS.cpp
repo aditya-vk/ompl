@@ -921,6 +921,7 @@ namespace ompl
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
                         graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
                         graphPtr_->numVertices());
+            generateSamplesCostLog();
         }
 
         void IGLS::endSuccessMessage() const
@@ -931,6 +932,7 @@ namespace ompl
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
                         graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
                         graphPtr_->numVertices());
+            generateSamplesCostLog();
         }
 
         void IGLS::endFailureMessage() const
@@ -1217,5 +1219,18 @@ namespace ompl
             return std::to_string(queuePtr_->numVerticesPopped());
         }
         /////////////////////////////////////////////////////////////////////////////////////////////
+
+        void IGLS::generateSamplesCostLog() const
+        {
+            std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
+
+            std::ofstream logfile;
+            assert(hasExactSolution_);
+            std::string solutionDataFile = "IGLS_Metrics.txt";
+            logfile.open(solutionDataFile, std::ios_base::app);
+            logfile << graphPtr_->getCopyOfSamples().size() << " " << numEdgeCollisionChecks_ << " " << bestCost_
+                    << std::endl;
+            logfile.close();
+        }
     }  // namespace geometric
 }  // namespace ompl
