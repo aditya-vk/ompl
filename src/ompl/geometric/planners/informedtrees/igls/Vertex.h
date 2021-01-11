@@ -125,6 +125,19 @@ namespace ompl
             /** \brief Clears children. */
             void clearChildren();
 
+            /** \brief Adds a cached neighbor */
+            void cacheNeighbor(const VertexPtr &neighbor);
+
+            /** \brief Removes a cached neighbor */
+            void uncacheNeighbor(const VertexPtr &neighbor);
+
+            /** \brief Returns the list of cached neighbors */
+            void getCachedNeighbors(VertexPtrVector *neighbors) const;
+            void getCachedNeighbors(VertexConstPtrVector *neighbors) const;
+
+            /** \brief Returns true if vertex is a cached neighbor. */
+            bool hasCachedNeighbor(const VertexConstPtr &vertex) const;
+
             /** \brief Put the vertex on the blacklist of children. */
             void blacklistChild(const VertexConstPtr &vertex);
 
@@ -241,6 +254,9 @@ namespace ompl
             /** \brief The child states as weak pointers, such that the ownership loop is broken and a state can be
              * deleted once it's children are. */
             std::vector<VertexWeakPtr> children_;
+
+            /** \brief The cached neighbors. */
+            std::vector<VertexWeakPtr> cachedNeighbors_;
 
             /** \brief A pointer to the position in the search queue. */
             SearchQueue::VertexQueueElemPtr vertexQueueLookup_;

@@ -241,6 +241,11 @@ namespace ompl
             /** \brief Resets properties of vertex and its subtree, and tracks them in inconsistentVertices. */
             void resetVertexPropertiesForRepair(const VertexPtr &vertex, VertexPtrVector &inconsistentVertices);
 
+            /** \brief Sets the parent property of a vertex by considering all valid neighbors during repair. */
+            void findBestParent(const VertexPtr &vertex);
+
+            void cacheParentAsNeighbor();
+
             /** \brief The special work that needs to be done when a collision-free path has been computed. */
             void registerSolution();
 

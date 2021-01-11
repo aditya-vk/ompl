@@ -391,6 +391,65 @@ namespace ompl
             children_.clear();
         }
 
+        void IGLS::Vertex::cacheNeighbor(const VertexPtr &neighbor)
+        {
+            cachedNeighbors_.push_back(neighbor);
+        }
+
+        /** \brief Removes a cached neighbor */
+        void IGLS::Vertex::uncacheNeighbor(const VertexPtr &neighbor)
+        {
+            bool foundNeighbor = false;
+            for (auto it = cachedNeighbors_.begin(); it != cachedNeighbors_.end() && !foundNeighbor; ++it)
+            {
+                // Check if this is the child we're looking for
+                if (it->lock()->getId() == neighbor->getId())
+                {
+                    // It is, mark as found
+                    foundNeighbor = true;
+
+                    // First, clear the entry in the vector
+                    it->reset();
+
+                    // Then remove that entry from the vector efficiently
+                    swapPopBack(it, &cachedNeighbors_);
+                }
+            }
+        }
+
+        void IGLS::Vertex::getCachedNeighbors(VertexPtrVector *neighbors) const
+        {
+            neighbors->clear();
+            for (const auto &neighbor : cachedNeighbors_)
+            {
+                neighbors->push_back(neighbor.lock());
+            }
+        }
+
+        void IGLS::Vertex::getCachedNeighbors(VertexConstPtrVector *neighbors) const
+        {
+            neighbors->clear();
+            for (const auto &neighbor : cachedNeighbors_)
+            {
+                neighbors->push_back(neighbor.lock());
+            }
+        }
+
+        bool IGLS::Vertex::hasCachedNeighbor(const VertexConstPtr &vertex) const
+        {
+            bool foundNeighbor = false;
+            for (auto it = cachedNeighbors_.begin(); it != cachedNeighbors_.end() && !foundNeighbor; ++it)
+            {
+                // Check if this is the child we're looking for
+                if (it->lock()->getId() == vertex->getId())
+                {
+                    // It is, mark as found
+                    foundNeighbor = true;
+                }
+            }
+            return foundNeighbor;
+        }
+
         void IGLS::Vertex::blacklistChild(const VertexConstPtr &vertex)
         {
             childIdBlacklist_.emplace(vertex->getId());
@@ -549,7 +608,8 @@ namespace ompl
                 // Assert that I have not been asked to cascade this bad data to my children:
                 if (this->hasChildren() && cascadeUpdates)
                 {
-                    throw ompl::Exception("Attempting to update descendants' costs and depths of a vertex that does "
+                    throw ompl::Exception("Attempting to update descendants' costs and depths of a vertex that "
+                                          "does "
                                           "not have a parent and is not root. This information would therefore be "
                                           "gibberish.");
                 }

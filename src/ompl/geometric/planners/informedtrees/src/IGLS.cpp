@@ -431,6 +431,7 @@ namespace ompl
                         queuePtr_->enqueueVertex(child);
                     }
                 }
+                // TODO(avk): Consider cached neighbors here as well?
 
                 // Now process neighbors.
                 VertexPtrVector neighbors;
@@ -527,19 +528,10 @@ namespace ompl
             vertex->clearChildren();
         }
 
-        void IGLS::repair(const VertexPtr &root)
+        void IGLS::findBestParent(const VertexPtr &vertex)
         {
-            // Recursive lambda might have been cleaner if possible in c++.
-            std::vector<VertexPtr> inconsistentVertices;
-            resetVertexPropertiesForRepair(root, inconsistentVertices);
-
-            // Find the best parent for each inconsistent vertex.
-            for (const auto &vertex : inconsistentVertices)
-            {
-                // Get the neighbors.
-                VertexPtrVector neighbors;
-                graphPtr_->nearestSamples(vertex, &neighbors);
-                for (const auto &neighbor : neighbors)
+            auto findParent = [&](const VertexPtrVector &potentialParents) {
+                for (const auto &neighbor : potentialParents)
                 {
                     // Ignore invalid parents.
                     if (!edgeCanBeConsideredForRepair(neighbor, vertex))
@@ -556,6 +548,29 @@ namespace ompl
                     // We have a valid neighbor. Rewire.
                     vertex->addParent(neighbor, edgeCost);
                 }
+            };
+
+            // Get the current neighbors. Also consider cached neighbors.
+            VertexPtrVector neighbors;
+            graphPtr_->nearestSamples(vertex, &neighbors);
+            VertexPtrVector cachedNeighbors;
+            vertex->getCachedNeighbors(&cachedNeighbors);
+
+            // Find the better parent of all neighbors.
+            findParent(neighbors);
+            findParent(cachedNeighbors);
+        }
+
+        void IGLS::repair(const VertexPtr &root)
+        {
+            // Recursive lambda might have been cleaner if possible in c++.
+            std::vector<VertexPtr> inconsistentVertices;
+            resetVertexPropertiesForRepair(root, inconsistentVertices);
+
+            // Find the best parent for each inconsistent vertex.
+            for (const auto &vertex : inconsistentVertices)
+            {
+                findBestParent(vertex);
                 repairQueuePtr_->enqueueVertex(vertex);
             }
 
@@ -853,6 +868,10 @@ namespace ompl
             {
                 return false;
             }
+            if (parent->hasCachedNeighbor(child))
+            {
+                return false;
+            }
             return true;
         }
 
@@ -907,6 +926,33 @@ namespace ompl
                 // conveniently allows us to reuse code.
                 Planner::pdef_->getIntermediateSolutionCallback()(this, this->bestPathFromGoalToStart(), bestCost_);
             }
+
+            // Cache parent as a neighbor for each child.
+            this->cacheParentAsNeighbor();
+        }
+
+        void IGLS::cacheParentAsNeighbor()
+        {
+            VertexPtr curVertex = graphPtr_->getGoalVertex();
+            std::cout << "Current Solution: " << std::endl;
+            for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParent())
+            {
+                std::cout << curVertex->getId() << " ";
+                if (!curVertex->hasCachedNeighbor(curVertex->getParent()))
+                {
+                    curVertex->cacheNeighbor(curVertex->getParent());
+                }
+            }
+            std::cout << curVertex->getId() << std::endl;
+
+            std::cout << "Goal Cached Neighbors: ";
+            VertexPtrVector neighbors;
+            graphPtr_->getGoalVertex()->getCachedNeighbors(&neighbors);
+            for (const auto &n : neighbors)
+            {
+                std::cout << n->getId() << " ";
+            }
+            std::cout << std::endl;
         }
 
         // ============================================================================================================
