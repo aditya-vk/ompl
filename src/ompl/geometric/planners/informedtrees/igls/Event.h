@@ -22,11 +22,26 @@ namespace ompl
 
             /** \brief Returns true if the vertex triggers the event.
              * Default behavior implements LazySP i.e. triggers when vertex is goal. */
-            bool isTriggered(const VertexPtr &vertex) const;
+            virtual bool isTriggered(const VertexPtr &vertex) const;
 
-        private:
+        protected:
             ImplicitGraph *const graphPtr_;
         };
+
+        /** \brief An Event.*/
+        class IGLS::ConstantDepthEvent : public IGLS::Event
+        {
+        public:
+            explicit ConstantDepthEvent(ImplicitGraph *const graphPtr, std::size_t depth);
+
+            /** \brief Returns true if the vertex triggers the event.
+             * Default behavior implements LazySP i.e. triggers when vertex is goal. */
+            bool isTriggered(const VertexPtr &vertex) const override;
+
+        private:
+            std::size_t depth_;
+        };
+
     }  // namespace geometric
 }  // namespace ompl
 

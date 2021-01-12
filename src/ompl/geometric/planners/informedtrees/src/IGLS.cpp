@@ -438,6 +438,8 @@ namespace ompl
                 graphPtr_->nearestSamples(vertex, &neighbors);
                 for (const auto &neighbor : neighbors)
                 {
+                    // After pruning is enabled,we might want to switch the order here for efficiency?
+                    // There will be fewer vertices that don't improve the solution after pruning.
                     if (!queuePtr_->canPossiblyImproveCurrentSolution(neighbor))
                     {
                         continue;
@@ -528,7 +530,7 @@ namespace ompl
             vertex->clearChildren();
         }
 
-        void IGLS::findBestParent(const VertexPtr &vertex)
+        void IGLS::findBestParentForRepair(const VertexPtr &vertex)
         {
             auto findParent = [&](const VertexPtrVector &potentialParents) {
                 for (const auto &neighbor : potentialParents)
@@ -561,6 +563,42 @@ namespace ompl
             findParent(cachedNeighbors);
         }
 
+        void IGLS::expandToInconsistentNeighbors(const VertexPtr &vertex)
+        {
+            auto expandToNeighbor = [&](const VertexPtrVector &potentialChildren) {
+                for (const auto &neighbor : potentialChildren)
+                {
+                    if (neighbor->isConsistent() || !edgeCanBeConsideredForExpansion(vertex, neighbor))
+                    {
+                        continue;
+                    }
+                    const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
+                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
+                            costHelpPtr_->combineCosts(vertex->getCost(), edgeCost), neighbor->getCost()))
+                    {
+                        // Ignore this neighbor. It has a better parent already.
+                        continue;
+                    }
+                    // Vertex is a strictly better parent to neighbor.
+                    // TODO(avk): I am going to run an expensive operation here for now since addParent()
+                    // by default modifies the queuePtr_.
+                    repairQueuePtr_->removeVertexFromQueue(neighbor);
+                    neighbor->addParent(vertex, edgeCost);
+                    repairQueuePtr_->enqueueVertex(neighbor);
+                }
+            };
+
+            // Get the current neighbors. Also consider cached neighbors.
+            VertexPtrVector neighbors;
+            graphPtr_->nearestSamples(vertex, &neighbors);
+            VertexPtrVector cachedNeighbors;
+            vertex->getCachedNeighbors(&cachedNeighbors);
+
+            // Expand vertex to inconsistent neighbors.
+            expandToNeighbor(neighbors);
+            expandToNeighbor(cachedNeighbors);
+        }
+
         void IGLS::repair(const VertexPtr &root)
         {
             // Recursive lambda might have been cleaner if possible in c++.
@@ -570,7 +608,7 @@ namespace ompl
             // Find the best parent for each inconsistent vertex.
             for (const auto &vertex : inconsistentVertices)
             {
-                findBestParent(vertex);
+                findBestParentForRepair(vertex);
                 repairQueuePtr_->enqueueVertex(vertex);
             }
 
@@ -601,34 +639,15 @@ namespace ompl
                     }
 
                     // Check if this vertex can start its own family.
-                    VertexPtrVector neighbors;
-                    graphPtr_->nearestSamples(vertex, &neighbors);
-                    for (const auto &neighbor : neighbors)
-                    {
-                        if (neighbor->isConsistent() || !edgeCanBeConsideredForExpansion(vertex, neighbor))
-                        {
-                            continue;
-                        }
-                        const auto edgeCost = costHelpPtr_->trueEdgeCost(vertex, neighbor);
-                        if (costHelpPtr_->isCostWorseThanOrEquivalentTo(
-                                costHelpPtr_->combineCosts(vertex->getCost(), edgeCost), neighbor->getCost()))
-                        {
-                            // Ignore this neighbor. It has a better parent already.
-                            continue;
-                        }
-                        // Vertex is a strictly better parent to neighbor.
-                        // TODO(avk): I am going to run an expensive operation here for now since addParent()
-                        // by default modifies the queuePtr_.
-                        repairQueuePtr_->removeVertexFromQueue(neighbor);
-                        neighbor->addParent(vertex, edgeCost);
-                        repairQueuePtr_->enqueueVertex(neighbor);
-                    }
+                    expandToInconsistentNeighbors(vertex);
                 }
                 else
                 {
                     // Since the vertex is completely removed from the tree, we should allow expansions to search tree
                     // vertices in the future.
                     vertex->registerExpansionToVertices(false);
+                    // TODO(avk): Unregister it from being a vertex.
+                    // (Affects the count of number of vertices in the graph.)
                 }
             }
             // TODO(avk): Optimization: Stop processing vertices if the topcost here is greater than
@@ -872,36 +891,44 @@ namespace ompl
             {
                 return false;
             }
-            if (parent->hasCachedNeighbor(child))
-            {
-                return false;
-            }
+            // If the child is a cached neighbor, we should not consider it during expansion.
+            // TODO(avk): Remove this check if we are not considering cached neighbors during expansion.
             return true;
         }
 
         bool IGLS::edgeCanBeConsideredForRepair(const VertexPtr &parent, const VertexPtr &child)
         {
-            // Determine if the neighbor is valid potential parent.
+            // Parent needs to be connected to the search tree.
             if (!parent->isInTree())
             {
                 return false;
             }
+            // Triggering vertices should not be parents (yet).
             if (event_->isTriggered(parent))
             {
                 return false;
             }
+            // child cannot parent itself.
             if (parent->getId() == child->getId())
             {
                 return false;
             }
+            // If the vertex is in the search queue, this repair can happen during the expansion.
+            if (parent->getVertexQueueLookup())
+            {
+                return false;
+            }
+            // If the parent is inconsistent, no point rewiring to it.
             if (!parent->isConsistent())
             {
                 return false;
             }
+            // If the edge was evaluated to be in collision, ignore this parent.
             if (parent->hasBlacklistedChild(child) || child->hasBlacklistedChild(parent))
             {
                 return false;
             }
+            // Seems like a valid parent.
             return true;
         }
 
@@ -915,7 +942,6 @@ namespace ompl
             // Tell everyone else about it.
             queuePtr_->registerSolutionCost(bestCost_);
             graphPtr_->registerSolutionCost(bestCost_);
-            this->printGraph();
 
             // Brag:
             this->goalMessage();
@@ -933,10 +959,10 @@ namespace ompl
             }
 
             // Cache parent as a neighbor for each child.
-            this->cacheParentAsNeighbor();
+            this->cacheNeighbors();
         }
 
-        void IGLS::cacheParentAsNeighbor()
+        void IGLS::cacheNeighbors()
         {
             VertexPtr curVertex = graphPtr_->getGoalVertex();
             std::cout << "Current Solution: " << std::endl;
@@ -946,6 +972,7 @@ namespace ompl
                 if (!curVertex->hasCachedNeighbor(curVertex->getParent()))
                 {
                     curVertex->cacheNeighbor(curVertex->getParent());
+                    curVertex->getParent()->cacheNeighbor(curVertex);
                 }
             }
             std::cout << curVertex->getId() << std::endl;
@@ -1282,19 +1309,6 @@ namespace ompl
             logfile << graphPtr_->getCopyOfSamples().size() << " " << numEdgeCollisionChecks_ << " " << bestCost_
                     << std::endl;
             logfile.close();
-        }
-        void IGLS::printGraph() const
-        {
-            std::string solutionDataFile = "IGLS_Tree.txt";
-            auto samples = graphPtr_->getCopyOfSamples();
-            std::cout << "Printing out the graph:" << std::endl;
-            for (const auto &sample : samples)
-            {
-                if (!sample->isRoot() && sample->isInTree())
-                {
-                    std::cout << sample->getId() << " " << sample->getParent()->getId() << std::endl;
-                }
-            }
         }
     }  // namespace geometric
 }  // namespace ompl

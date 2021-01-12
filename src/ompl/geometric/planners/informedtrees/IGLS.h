@@ -38,6 +38,7 @@ namespace ompl
             class SearchQueue;
             /** \brief The event defining the interleaving of search and evaluation. */
             class Event;
+            class ConstantDepthEvent;
             /** \brief The selector defining the strategy to choose edges to evaluate. */
             class Selector;
 
@@ -242,9 +243,13 @@ namespace ompl
             void resetVertexPropertiesForRepair(const VertexPtr &vertex, VertexPtrVector &inconsistentVertices);
 
             /** \brief Sets the parent property of a vertex by considering all valid neighbors during repair. */
-            void findBestParent(const VertexPtr &vertex);
+            void findBestParentForRepair(const VertexPtr &vertex);
 
-            void cacheParentAsNeighbor();
+            /** \brief Sets the parent property of a vertex by considering all valid neighbors during repair. */
+            void expandToInconsistentNeighbors(const VertexPtr &vertex);
+
+            /** \brief Caches the shortest path in an iteration as vertex neighbors. */
+            void cacheNeighbors();
 
             /** \brief The special work that needs to be done when a collision-free path has been computed. */
             void registerSolution();
