@@ -401,6 +401,7 @@ namespace ompl
             /** \brief The number of edge collision checks. Accessible via edgeCollisionCheckProgressProperty. */
             unsigned int numEdgeCollisionChecks_{0u};
             void generateSamplesCostLog() const;
+            void printGraph() const;
 
             // ---
             // Parameters - Set defaults in construction/setup and do not reset in clear.

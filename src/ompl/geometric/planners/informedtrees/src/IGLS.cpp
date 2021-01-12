@@ -594,6 +594,10 @@ namespace ompl
                     if (event_->isTriggered(vertex))
                     {
                         queuePtr_->enqueueVertex(vertex);
+                        // We continue to pop the next vertex since event-triggering
+                        // vertices are supposed to leaves and not supposed to start
+                        // their own families yet as done below this block.
+                        continue;
                     }
 
                     // Check if this vertex can start its own family.
@@ -911,6 +915,7 @@ namespace ompl
             // Tell everyone else about it.
             queuePtr_->registerSolutionCost(bestCost_);
             graphPtr_->registerSolutionCost(bestCost_);
+            this->printGraph();
 
             // Brag:
             this->goalMessage();
@@ -1277,6 +1282,19 @@ namespace ompl
             logfile << graphPtr_->getCopyOfSamples().size() << " " << numEdgeCollisionChecks_ << " " << bestCost_
                     << std::endl;
             logfile.close();
+        }
+        void IGLS::printGraph() const
+        {
+            std::string solutionDataFile = "IGLS_Tree.txt";
+            auto samples = graphPtr_->getCopyOfSamples();
+            std::cout << "Printing out the graph:" << std::endl;
+            for (const auto &sample : samples)
+            {
+                if (!sample->isRoot() && sample->isInTree())
+                {
+                    std::cout << sample->getId() << " " << sample->getParent()->getId() << std::endl;
+                }
+            }
         }
     }  // namespace geometric
 }  // namespace ompl
