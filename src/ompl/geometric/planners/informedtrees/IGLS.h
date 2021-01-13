@@ -243,10 +243,13 @@ namespace ompl
             void resetVertexPropertiesForRepair(const VertexPtr &vertex, VertexPtrVector &inconsistentVertices);
 
             /** \brief Sets the parent property of a vertex by considering all valid neighbors during repair. */
-            void findBestParentForRepair(const VertexPtr &vertex);
+            void findBestParentForRepair(const VertexPtr &vertex, const VertexPtrVector &parents);
+
+            /** \brief Expand vertex to nearest neighbors as well as cached neighbors */
+            void expandToNeighbors(const VertexPtr &vertex, const VertexPtrVector &neighbors);
 
             /** \brief Sets the parent property of a vertex by considering all valid neighbors during repair. */
-            void expandToInconsistentNeighbors(const VertexPtr &vertex);
+            void expandToInconsistentNeighbors(const VertexPtr &vertex, const VertexPtrVector &neighbors);
 
             /** \brief Caches the shortest path in an iteration as vertex neighbors. */
             void cacheNeighbors();

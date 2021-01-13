@@ -30,9 +30,12 @@ namespace ompl
             {
                 return false;
             }
+            if (vertex->getId() == graphPtr_->getGoalVertex()->getId())
+            {
+                return true;
+            }
             // TODO(avk): Placeholder event for constantDepth(1)
-            if (!vertex->getParent()->hasEvaluatedChild(vertex) ||
-                (vertex->getId() == graphPtr_->getGoalVertex()->getId()))
+            if (!vertex->hasEvaluatedChild(vertex->getParent()) && !vertex->getParent()->hasEvaluatedChild(vertex))
             {
                 return true;
             }
