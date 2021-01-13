@@ -360,10 +360,10 @@ namespace ompl
             std::shared_ptr<SearchQueue> repairQueuePtr_{nullptr};
 
             /** \brief The event that defines the toggle between lazy search and evaluation. */
-            std::shared_ptr<Event> event_{nullptr};
+            std::shared_ptr<Event> eventPtr_{nullptr};
 
             /** \brief The selector that defines the strategy to choose edges for collision checking. */
-            std::shared_ptr<Selector> selector_{nullptr};
+            std::shared_ptr<Selector> selectorPtr_{nullptr};
 
             /** \brief The best cost found to date. This is the maximum total-heuristic cost of samples we'll consider.
              * Accessible via bestCostProgressProperty */

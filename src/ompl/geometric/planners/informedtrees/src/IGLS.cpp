@@ -165,8 +165,8 @@ namespace ompl
                 repairQueuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
 
                 // Setup the event and the selector.
-                event_ = std::make_shared<Event>(graphPtr_.get());
-                selector_ = std::make_shared<Selector>();
+                eventPtr_ = std::make_shared<Event>(graphPtr_.get());
+                selectorPtr_ = std::make_shared<Selector>();
 
                 // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
                 // NN struct and check for starts/goals, respectively.
@@ -391,7 +391,7 @@ namespace ompl
 
                 // Select an edge along the most promising subpath.
                 VertexPtrVector reverseSubpath = pathFromVertexToStart(queuePtr_->getFrontVertex());
-                VertexPtrPair edge = selector_->edgeToEvaluate(reverseSubpath);
+                VertexPtrPair edge = selectorPtr_->edgeToEvaluate(reverseSubpath);
 
                 // Check if we have computed a new solution.
                 // Unless a path to the goal is completely evaluated, selector always returns an edge.
@@ -411,7 +411,7 @@ namespace ompl
         void IGLS::search()
         {
             // The following should be in a loop until the queuePtr is either empty or event triggers.
-            while (!queuePtr_->isEmpty() && !event_->isTriggered(queuePtr_->getFrontVertex()))
+            while (!queuePtr_->isEmpty() && !eventPtr_->isTriggered(queuePtr_->getFrontVertex()))
             {
                 // Get the most promising vertex.
                 VertexPtr vertex = queuePtr_->popFrontVertex();
@@ -629,7 +629,7 @@ namespace ompl
                     vertex->getParent()->addChild(vertex);
 
                     // If we can trigger the event, add to search queue.
-                    if (event_->isTriggered(vertex))
+                    if (eventPtr_->isTriggered(vertex))
                     {
                         queuePtr_->enqueueVertex(vertex);
                         // We continue to pop the next vertex since event-triggering
@@ -904,7 +904,7 @@ namespace ompl
                 return false;
             }
             // Triggering vertices should not be parents (yet).
-            if (event_->isTriggered(parent))
+            if (eventPtr_->isTriggered(parent))
             {
                 return false;
             }

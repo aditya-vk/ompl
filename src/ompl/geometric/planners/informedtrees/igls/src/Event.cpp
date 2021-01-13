@@ -19,14 +19,20 @@ namespace ompl
         }
 
         IGLS::ConstantDepthEvent::ConstantDepthEvent(ImplicitGraph *const graphPtr, std::size_t depth)
-          : IGLS::Event(graphPtr_), depth_(depth)
+          : IGLS::Event(graphPtr), depth_(depth)
         {
             // Do nothing.
         }
 
         bool IGLS::ConstantDepthEvent::isTriggered(const VertexPtr &vertex) const
         {
-            if (vertex->getParent()->hasEvaluatedChild(vertex) || (vertex == graphPtr_->getGoalVertex()))
+            if (vertex->isRoot())
+            {
+                return false;
+            }
+            // TODO(avk): Placeholder event for constantDepth(1)
+            if (!vertex->getParent()->hasEvaluatedChild(vertex) ||
+                (vertex->getId() == graphPtr_->getGoalVertex()->getId()))
             {
                 return true;
             }
