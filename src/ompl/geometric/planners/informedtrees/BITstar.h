@@ -297,6 +297,9 @@ namespace ompl
             template <template <typename T> class NN>
             void setNearestNeighbors();
 
+            /** \brief Enable the cascading of rewirings. */
+            void enableCascadingRewirings(bool enable);
+
         protected:
             // ---
             // The settings that turn BIT* into ABIT*.
@@ -313,9 +316,6 @@ namespace ompl
             /** \brief Sets the parameter that scales the truncation factor for the searches of each RGG approximation.
              * See ABIT*'s class description for more details about the truncation factor update policy. */
             void setTruncationScalingParameter(double parameter);
-
-            /** \brief Enable the cascading of rewirings. */
-            void enableCascadingRewirings(bool enable);
 
             // ---
             // Getters specific to ABIT*.
@@ -558,6 +558,7 @@ namespace ompl
             /** \brief Whether to stop the planner as soon as the path changes. */
             bool stopOnSolutionChange_{false};
             void generateSamplesCostLog() const;
+            void printCompleteGraph() const;
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl

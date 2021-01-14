@@ -991,10 +991,11 @@ namespace ompl
         {
             OMPL_INFORM("%s (%u iters): Found a solution of cost %.4f (%u vertices) from %u samples by processing %u "
                         "edges (%u collision checked) to create %u vertices and perform %u rewirings. The graph "
-                        "currently has %u vertices.",
+                        "currently has %u vertices and a connection radius of %.4f.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
                         graphPtr_->numStatesGenerated(), queuePtr_->numEdgesPopped(), numEdgeCollisionChecks_,
-                        graphPtr_->numVerticesConnected(), numRewirings_, graphPtr_->numVertices());
+                        graphPtr_->numVerticesConnected(), numRewirings_, graphPtr_->numVertices(),
+                        graphPtr_->getConnectivityR());
             generateSamplesCostLog();
         }
 
@@ -1007,6 +1008,7 @@ namespace ompl
                         queuePtr_->numEdgesPopped(), numEdgeCollisionChecks_, graphPtr_->numVerticesConnected(),
                         numRewirings_, graphPtr_->numVertices());
             generateSamplesCostLog();
+            printCompleteGraph();
         }
 
         void BITstar::endFailureMessage() const
@@ -1433,5 +1435,29 @@ namespace ompl
                     << std::endl;
             logfile.close();
         }
+
+        void BITstar::printCompleteGraph() const
+        {
+            auto samples = graphPtr_->getCopyOfSamples();
+
+            std::ofstream logfile;
+            std::string datafile = "BITstar_Graph.txt";
+            logfile.open(datafile, std::ios_base::app);
+            logfile << "--------------------------------------" << std::endl;
+            std::vector<double> source, target;
+            for (const auto &sample : samples)
+            {
+                Planner::si_->getStateSpace()->copyToReals(source, sample->state());
+                VertexPtrVector neighbors;
+                graphPtr_->nearestSamples(sample, &neighbors);
+                for (const auto &neighbor : neighbors)
+                {
+                    Planner::si_->getStateSpace()->copyToReals(target, neighbor->state());
+                    logfile << source[0] << " " << source[1] << " " << target[0] << " " << target[1] << std::endl;
+                }
+            }
+            logfile.close();
+        }
+
     }  // namespace geometric
 }  // namespace ompl
