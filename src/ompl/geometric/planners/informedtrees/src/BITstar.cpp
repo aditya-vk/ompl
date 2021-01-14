@@ -1008,7 +1008,6 @@ namespace ompl
                         queuePtr_->numEdgesPopped(), numEdgeCollisionChecks_, graphPtr_->numVerticesConnected(),
                         numRewirings_, graphPtr_->numVertices());
             generateSamplesCostLog();
-            printCompleteGraph();
         }
 
         void BITstar::endFailureMessage() const
