@@ -410,6 +410,7 @@ namespace ompl
             unsigned int numEdgeCollisionChecks_{0u};
             void generateSamplesCostLog() const;
             void printGraph() const;
+            void printCompleteGraph() const;
 
             // ---
             // Parameters - Set defaults in construction/setup and do not reset in clear.
