@@ -997,8 +997,9 @@ namespace ompl
         {
             VertexPtrVector samples;
             samples_->list(samples);
-            return std::count_if(samples.begin(), samples.end(),
-                                 [](const VertexPtr &sample) { return sample->isInTree(); });
+            return std::count_if(samples.begin(), samples.end(), [](const VertexPtr &sample) {
+                return (sample->isRoot() || (sample->isInTree() && sample->getParent()->hasEvaluatedChild(sample)));
+            });
         }
 
         unsigned int IGLS::ImplicitGraph::numStatesGenerated() const
