@@ -927,6 +927,12 @@ namespace ompl
             {
                 return false;
             }
+            // TODO(avk): Unsure if I should have this optimization.
+            // if (parent->hasEverBeenExpandedToVertices() && !parent->hasCachedNeighbor(child))
+            // {
+            //     return false;
+            // }
+
             // Seems like a valid parent.
             return true;
         }
@@ -964,26 +970,14 @@ namespace ompl
         void IGLS::cacheNeighbors()
         {
             VertexPtr curVertex = graphPtr_->getGoalVertex();
-            std::cout << "Current Solution: " << std::endl;
             for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParent())
             {
-                std::cout << curVertex->getId() << " ";
                 if (!curVertex->hasCachedNeighbor(curVertex->getParent()))
                 {
                     curVertex->cacheNeighbor(curVertex->getParent());
                     curVertex->getParent()->cacheNeighbor(curVertex);
                 }
             }
-            std::cout << curVertex->getId() << std::endl;
-
-            std::cout << "Goal Cached Neighbors: ";
-            VertexPtrVector neighbors;
-            graphPtr_->getGoalVertex()->getCachedNeighbors(&neighbors);
-            for (const auto &n : neighbors)
-            {
-                std::cout << n->getId() << " ";
-            }
-            std::cout << std::endl;
         }
 
         // ============================================================================================================
@@ -994,10 +988,10 @@ namespace ompl
             OMPL_INFORM("%s (%u iters): Found a solution of cost %.4f (%u vertices) from %u samples by processing "
                         "%u "
                         "vertices, collision checking %u edges and perform %u rewirings. The graph "
-                        "currently has %u vertices.",
+                        "currently has %u vertices and a connection radius of %.4f.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
                         graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
-                        graphPtr_->numVertices());
+                        graphPtr_->numVertices(), graphPtr_->getConnectivityR());
             generateSamplesCostLog();
         }
 
@@ -1320,6 +1314,29 @@ namespace ompl
                     std::cout << sample->getId() << " " << sample->getParent()->getId() << std::endl;
                 }
             }
+        }
+
+        void IGLS::printCompleteGraph() const
+        {
+            auto samples = graphPtr_->getCopyOfSamples();
+
+            std::ofstream logfile;
+            std::string datafile = "IGLS_Graph.txt";
+            logfile.open(datafile, std::ios_base::app);
+            logfile << "--------------------------------------" << std::endl;
+            std::vector<double> source, target;
+            for (const auto &sample : samples)
+            {
+                Planner::si_->getStateSpace()->copyToReals(source, sample->state());
+                VertexPtrVector neighbors;
+                graphPtr_->nearestSamples(sample, &neighbors);
+                for (const auto &neighbor : neighbors)
+                {
+                    Planner::si_->getStateSpace()->copyToReals(target, neighbor->state());
+                    logfile << source[0] << " " << source[1] << " " << target[0] << " " << target[1] << std::endl;
+                }
+            }
+            logfile.close();
         }
     }  // namespace geometric
 }  // namespace ompl
