@@ -450,6 +450,11 @@ namespace ompl
             return foundNeighbor;
         }
 
+        void IGLS::Vertex::clearCachedNeighbors()
+        {
+            cachedNeighbors_.clear();
+        }
+
         void IGLS::Vertex::blacklistChild(const VertexConstPtr &vertex)
         {
             childIdBlacklist_.emplace(vertex->getId());

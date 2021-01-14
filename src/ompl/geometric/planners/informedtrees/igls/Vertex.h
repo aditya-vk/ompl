@@ -138,6 +138,9 @@ namespace ompl
             /** \brief Returns true if vertex is a cached neighbor. */
             bool hasCachedNeighbor(const VertexConstPtr &vertex) const;
 
+            /** \brief Clears cached neighbors. */
+            void clearCachedNeighbors();
+
             /** \brief Put the vertex on the blacklist of children. */
             void blacklistChild(const VertexConstPtr &vertex);
 
