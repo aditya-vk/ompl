@@ -306,6 +306,7 @@ namespace ompl
              * from start to this vertex, and this vertex to the goal. */
             void findBestSubgoalVertex();
             double getMetricForSubgoal(const VertexConstPtr &vertex);
+            double getGuidedESTMetric(const VertexConstPtr &vertex);
 
             // ---
             // High-level primitives pruning the graph.

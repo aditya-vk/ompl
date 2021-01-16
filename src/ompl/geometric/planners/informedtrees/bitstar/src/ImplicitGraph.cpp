@@ -1072,7 +1072,8 @@ namespace ompl
                     {
                         continue;
                     }
-                    const double currentMetric = getMetricForSubgoal(vertex);
+                    // const double currentMetric = getMetricForSubgoal(vertex);
+                    const double currentMetric = getGuidedESTMetric(vertex);
                     if (currentMetric > metricForBestSubgoalVertex_)
                     {
                         // Better, update the best subgoal.
@@ -1109,6 +1110,49 @@ namespace ompl
             // TODO(avk): What if v1 + v2 is zero.
 
             return (num / den);
+        }
+
+        double BITstar::ImplicitGraph::getGuidedESTMetric(const VertexConstPtr &vertex)
+        {
+            const double sourceThreshold = vertex->getCost().value();
+            const double targetThreshold = solutionCost_.value() - vertex->getCost().value();
+
+            // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
+            std::size_t coverage = 0;
+            std::size_t informed = 0;
+            VertexPtrVector samples;
+            samples_->list(samples);
+            for (const auto &sample : samples)
+            {
+                double informedDistance =
+                    costHelpPtr_->costToGoHeuristic(sample).value() + costHelpPtr_->costToComeHeuristic(sample).value();
+                if (informedDistance < solutionCost_.value())
+                {
+                    informed++;
+                }
+                double sourceDistance = costHelpPtr_->costToComeHeuristic(sample).value() +
+                                        spaceInformation_->distance(sample->state(), vertex->state());
+                if (sourceDistance < sourceThreshold)
+                {
+                    coverage++;
+                    continue;
+                }
+                double targetDistance = costHelpPtr_->costToGoHeuristic(sample).value() +
+                                        spaceInformation_->distance(vertex->state(), sample->state());
+                if (targetDistance < targetThreshold)
+                {
+                    coverage++;
+                }
+            }
+            // Normalize by the number of samples inside the informed set.
+            assert(coverage <= informed);
+            const double normalizedCoverage = coverage / informed;
+
+            // Compute how promising this vertex is.
+            const double promise = vertex->getCost().value() + costHelpPtr_->costToGoHeuristic(vertex).value();
+            const double normalizedPromise = promise / (solutionCost_.value());
+
+            return 1.0 / (0.75 * normalizedCoverage + 0.25 * normalizedPromise);
         }
 
         std::pair<unsigned int, unsigned int> BITstar::ImplicitGraph::pruneStartAndGoalVertices()
