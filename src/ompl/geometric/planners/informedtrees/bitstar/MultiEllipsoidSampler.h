@@ -26,8 +26,8 @@ namespace ompl
                 return false;
             }
 
-            bool sampleUniform(ompl::base::State *state, const ompl::base::State *focus, const double startCost,
-                               const double goalCost);
+            bool sampleUniform(ompl::base::State *state, const ompl::base::State *focus, double startCost,
+                               double goalCost);
 
             bool hasInformedMeasure() const override
             {
