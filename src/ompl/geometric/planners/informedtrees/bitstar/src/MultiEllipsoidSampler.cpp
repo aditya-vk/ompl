@@ -24,7 +24,7 @@ namespace ompl
         }
 
         bool MultiEllipsoidSampler::sampleUniform(ompl::base::State *state, const ompl::base::State *focus,
-                                                  const double startCost, const double goalCost)
+                                                  double startCost, double goalCost)
         {
             // Construct the start and goal ellipsoids.
             std::vector<double> startVector;
@@ -41,6 +41,9 @@ namespace ompl
             goalPhs = std::make_shared<ompl::ProlateHyperspheroid>(mDimension, &focusVector[0], &goalVector[0]);
 
             // Compute the summed measure.
+            startCost = std::max(startCost, InformedSampler::space_->distance(probDefn_->getStartState(0), focus));
+            goalCost = std::max(goalCost, InformedSampler::space_->distance(
+                                              focus, probDefn_->getGoal()->as<ompl::base::GoalState>()->getState()));
             startPhs->setTransverseDiameter(startCost);
             goalPhs->setTransverseDiameter(goalCost);
             summedMeasure_ = startPhs->getPhsMeasure() + goalPhs->getPhsMeasure();
