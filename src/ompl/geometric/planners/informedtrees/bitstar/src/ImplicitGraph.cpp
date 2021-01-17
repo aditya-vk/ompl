@@ -973,6 +973,10 @@ namespace ompl
                 {
                     findBestSubgoalVertex();
                 }
+                else
+                {
+                    bestSubgoalVertex_ = startVertices_.front();
+                }
                 // Log the focus + cost + graph. Uncomment this if you want to visualize the
                 // build of a single instance.
                 generateLog();
@@ -991,7 +995,7 @@ namespace ompl
 
                     // Sample in the interval [costSampled_, costReqd):
                     bool sampled;
-                    if (useLocalSampling_ && hasExactSolution_)
+                    if (hasExactSolution_)
                     {
                         // Find the local focus and sample from corresponding ellipsoids.
                         // TODO(avk): For asymptotic guarantee select focus start/goal with some probability.
@@ -1001,6 +1005,9 @@ namespace ompl
                     }
                     else
                     {
+                        // sampled = localSampler_->sampleUniform(
+                        //     newState->state(), bestSubgoalVertex_->state(), bestSubgoalVertex_->getCost().value(),
+                        //     solutionCost_.value() - bestSubgoalVertex_->getCost().value());
                         sampled = sampler_->sampleUniform(newState->state(), sampledCost_, requiredCost);
                     }
                     if (sampled)
@@ -1060,7 +1067,8 @@ namespace ompl
             VertexPtrVector vertices;
             samples_->list(vertices);
 
-            // Process all the vertices.
+            // Process all the vertices after resetting the best metric.
+            metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
             for (const auto &vertex : vertices)
             {
                 // TODO(avk): Is there a datastructure holding the vertices instead?
@@ -1152,7 +1160,8 @@ namespace ompl
             const double promise = vertex->getCost().value() + costHelpPtr_->costToGoHeuristic(vertex).value();
             const double normalizedPromise = promise / (solutionCost_.value());
 
-            return 1.0 / (0.75 * normalizedCoverage + 0.25 * normalizedPromise);
+            const double alpha = 1.0;
+            return 1.0 / ((1.0 - alpha) * normalizedCoverage + alpha * normalizedPromise);
         }
 
         std::pair<unsigned int, unsigned int> BITstar::ImplicitGraph::pruneStartAndGoalVertices()
