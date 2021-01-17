@@ -52,6 +52,12 @@ namespace ompl
 {
     namespace geometric
     {
+        enum class MetricType
+        {
+            Greedy,
+            Guided,
+            Bandit
+        };
         /**
         @anchor gBITstar
 
@@ -296,16 +302,28 @@ namespace ompl
             template <template <typename T> class NN>
             void setNearestNeighbors();
 
+            // --
+            // LBIT* settings
+            // --
+
             /** \brief Use local sampling */
             void setUseLocalSampling(const bool use);
             bool getUseLocalSampling() const;
+
+            /** \brief Set the iteration number of this planner's run. */
             void setIterationNumber(int iteration);
-            void setMaxGraphSize(int maxSize)
-            {
-                maxGraphSize_ = maxSize;
-            }
-            int maxGraphSize_;
-            ///////////////////////////////////////
+
+            /** \brief Generate logs saving samples generated in each iteration. */
+            void enableLoggingGraphEveryIteration(bool enable);
+
+            /** \brief Specify the metric to use. */
+            void useMetricType(MetricType type);
+
+            /** \brief Get metric type. */
+            MetricType getMetricType() const;
+
+            /** \brief Set alpha for guided metric type */
+            void setGuidedAlpha(const double alpha);
 
         protected:
             // ---
@@ -576,6 +594,15 @@ namespace ompl
             // Timer and Logger
             /** \brief Whether to stop the planner as soon as the path changes. */
             bool stopOnSolutionChange_{false};
+
+            ///////////////////////////////////////////////////////////////////
+            // LBIT* parameters
+            /** \brief Whether to stop the planner as soon as the path changes. */
+            bool enableLoggingGraphEveryIteration_{false};
+
+            /** \brief The type of metric to use for figuring out the best subgoal vertex. */
+            MetricType metricType_;
+
         };  // class BITstar
 
     }  // namespace geometric

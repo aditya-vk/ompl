@@ -968,19 +968,21 @@ namespace ompl
                     numRequiredSamples = numSamples_ + numNewSamplesInCurrentBatch_;
                 }
 
-                // Actually generate the new samples
+                // Update the best subgoal vertex before sampling new states.
+                bestSubgoalVertex_ = startVertices_.front();
                 if (useLocalSampling_ && hasExactSolution_)
                 {
                     findBestSubgoalVertex();
                 }
-                else
+
+                // Log the current graph and the search tree.
+                if (enableLoggingGraphEveryIteration_)
                 {
-                    bestSubgoalVertex_ = startVertices_.front();
+                    generateLog();
+                    newSamplesIteration_++;
                 }
-                // Log the focus + cost + graph. Uncomment this if you want to visualize the
-                // build of a single instance.
-                generateLog();
-                newSamplesIteration_++;
+
+                // Actually generate the new samples
                 VertexPtrVector newStates{};
                 newStates.reserve(numRequiredSamples);
                 for (std::size_t tries = 0u;
@@ -998,16 +1000,12 @@ namespace ompl
                     if (hasExactSolution_)
                     {
                         // Find the local focus and sample from corresponding ellipsoids.
-                        // TODO(avk): For asymptotic guarantee select focus start/goal with some probability.
                         sampled = localSampler_->sampleUniform(
                             newState->state(), bestSubgoalVertex_->state(), bestSubgoalVertex_->getCost().value(),
                             solutionCost_.value() - bestSubgoalVertex_->getCost().value());
                     }
                     else
                     {
-                        // sampled = localSampler_->sampleUniform(
-                        //     newState->state(), bestSubgoalVertex_->state(), bestSubgoalVertex_->getCost().value(),
-                        //     solutionCost_.value() - bestSubgoalVertex_->getCost().value());
                         sampled = sampler_->sampleUniform(newState->state(), sampledCost_, requiredCost);
                     }
                     if (sampled)
@@ -1027,10 +1025,12 @@ namespace ompl
                         // No else
                     }
                 }
-                // Log the focus + cost + graph. Uncomment this if you want to visualize the
-                // build of a single instance.
-                generateLog();
-                newSamplesIteration_++;
+                // Log the current graph and search tree.
+                if (enableLoggingGraphEveryIteration_)
+                {
+                    generateLog();
+                    newSamplesIteration_++;
+                }
 
                 // Add the new state as a sample.
                 this->addToSamples(newStates);
@@ -1061,9 +1061,36 @@ namespace ompl
             // No else, there are no vertices.
         }
 
-        void BITstar::ImplicitGraph::findBestSubgoalVertex()
+        void BITstar::ImplicitGraph::greedySubgoal()
         {
-            // The vertices in the graph
+            auto getMetric = [&](const VertexConstPtr &vertex) {
+                // Get the numerator: total drop in the cost.
+                const auto bestDropCostToCome =
+                    costHelpPtr_->subtractCost(vertex->getCost(), costHelpPtr_->costToComeHeuristic(vertex));
+                const auto potentialCostToGo = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
+                const auto bestDropCostToGo =
+                    costHelpPtr_->subtractCost(potentialCostToGo, costHelpPtr_->costToGoHeuristic(vertex));
+                const auto numerator = costHelpPtr_->combineCosts(bestDropCostToCome, bestDropCostToGo);
+
+                // Get the measures of the ellipsoids.
+                const double dimension = static_cast<double>(spaceInformation_->getStateDimension());
+                const double a1 = vertex->getCost().value() / 2.0;
+                const double f1 = costHelpPtr_->costToComeHeuristic(vertex).value() / 2.0;
+                assert(a1 >= f1);
+                const double v1 = a1 * std::pow(std::sqrt(a1 * a1 - f1 * f1), dimension - 1);
+
+                const double a2 = (solutionCost_.value() - vertex->getCost().value()) / 2.0;
+                const double f2 = costHelpPtr_->costToGoHeuristic(vertex).value() / 2.0;
+                assert(a2 >= f2);
+                const double v2 = a2 * std::pow(std::sqrt(a2 * a2 - f2 * f2), dimension - 1);
+
+                const double denominator = v1 + v2;
+                assert(denominator > 0);
+
+                return numerator.value() / denominator;
+            };
+
+            // The vertices in the graph.
             VertexPtrVector vertices;
             samples_->list(vertices);
 
@@ -1071,20 +1098,18 @@ namespace ompl
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
             for (const auto &vertex : vertices)
             {
-                // TODO(avk): Is there a datastructure holding the vertices instead?
                 if (vertex->isInTree())
                 {
                     // Only consider vertices in the closed list => g + h < maxCost.
-                    if (vertex->getCost().value() + costHelpPtr_->costToGoHeuristic(vertex).value() >=
-                        solutionCost_.value())
+                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(costHelpPtr_->currentHeuristicVertex(vertex),
+                                                                    solutionCost_))
                     {
                         continue;
                     }
-                    // const double currentMetric = getMetricForSubgoal(vertex);
-                    const double currentMetric = getGuidedESTMetric(vertex);
+
+                    const double currentMetric = getMetric(vertex);
                     if (currentMetric > metricForBestSubgoalVertex_)
                     {
-                        // Better, update the best subgoal.
                         bestSubgoalVertex_ = vertex;
                         metricForBestSubgoalVertex_ = currentMetric;
                     }
@@ -1092,76 +1117,102 @@ namespace ompl
             }
         }
 
-        double BITstar::ImplicitGraph::getMetricForSubgoal(const VertexConstPtr &vertex)
+        void BITstar::ImplicitGraph::guidedSubgoal()
         {
-            // TODO(avk): Too many .value()s. Can we do better please?
-            assert(vertex->getCost().value() >= costHelpPtr_->costToComeHeuristic(vertex).value());
-            const double bestDropCostToCome =
-                vertex->getCost().value() - costHelpPtr_->costToComeHeuristic(vertex).value();
-            const double bestDropCostToGo =
-                (solutionCost_.value() - vertex->getCost().value() - costHelpPtr_->costToGoHeuristic(vertex).value());
-            assert(bestDropCostToGo > 0);
+            auto getMetric = [&](const VertexConstPtr &vertex) {
+                const auto sourceThreshold = vertex->getCost();
+                const auto targetThreshold = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
 
-            const double num = bestDropCostToCome + bestDropCostToGo;
+                // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
+                std::size_t coverage = 0u;
+                std::size_t informed = 0u;
+                VertexPtrVector samples;
+                samples_->list(samples);
+                for (const auto &sample : samples)
+                {
+                    const auto informedDistance = costHelpPtr_->lowerBoundHeuristicVertex(sample);
+                    if (costHelpPtr_->isCostBetterThan(informedDistance, solutionCost_))
+                    {
+                        informed++;
+                    }
 
-            const double dim = static_cast<double>(spaceInformation_->getStateDimension());
-            const double a1 = vertex->getCost().value() / 2.0;
-            const double f1 = costHelpPtr_->costToComeHeuristic(vertex).value() / 2.0;
-            assert(a1 >= f1);
-            const double v1 = a1 * std::pow(std::sqrt(a1 * a1 - f1 * f1), dim - 1);
+                    const auto sourceDistance =
+                        costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(sample),
+                                                   costHelpPtr_->motionCost(sample->state(), vertex->state()));
+                    if (costHelpPtr_->isCostBetterThan(sourceDistance, sourceThreshold))
+                    {
+                        coverage++;
+                        continue;
+                    }
 
-            const double a2 = (solutionCost_.value() - vertex->getCost().value()) / 2.0;
-            const double f2 = costHelpPtr_->costToGoHeuristic(vertex).value() / 2.0;
-            assert(a2 >= f2);
-            const double v2 = a2 * std::pow(std::sqrt(a2 * a2 - f2 * f2), dim - 1);
-            const double den = v1 + v2;
-            // TODO(avk): What if v1 + v2 is zero.
+                    const auto targetDistance =
+                        costHelpPtr_->combineCosts(costHelpPtr_->motionCost(vertex->state(), sample->state()),
+                                                   costHelpPtr_->costToGoHeuristic(sample));
+                    if (costHelpPtr_->isCostBetterThan(targetDistance, targetThreshold))
+                    {
+                        coverage++;
+                    }
+                }
 
-            return (num / den);
-        }
+                // Normalize by the number of samples inside the informed set.
+                assert(coverage <= informed);
+                const double normalizedCoverage = coverage / informed;
 
-        double BITstar::ImplicitGraph::getGuidedESTMetric(const VertexConstPtr &vertex)
-        {
-            const double sourceThreshold = vertex->getCost().value();
-            const double targetThreshold = solutionCost_.value() - vertex->getCost().value();
+                // Compute how promising this vertex is.
+                const auto fvalue = costHelpPtr_->currentHeuristicVertex(vertex);
+                const auto normalizedFValue = fvalue.value() / solutionCost_.value();
+                return (1.0 - guidedAlpha_) * normalizedCoverage + guidedAlpha_ * normalizedFValue;
+            };
 
-            // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
-            std::size_t coverage = 0;
-            std::size_t informed = 0;
-            VertexPtrVector samples;
-            samples_->list(samples);
-            for (const auto &sample : samples)
+            // The vertices in the graph.
+            VertexPtrVector vertices;
+            samples_->list(vertices);
+
+            // Process all the vertices after resetting the best metric.
+            metricForBestSubgoalVertex_ = std::numeric_limits<double>::max();
+            for (const auto &vertex : vertices)
             {
-                double informedDistance =
-                    costHelpPtr_->costToGoHeuristic(sample).value() + costHelpPtr_->costToComeHeuristic(sample).value();
-                if (informedDistance < solutionCost_.value())
+                if (vertex->isInTree())
                 {
-                    informed++;
-                }
-                double sourceDistance = costHelpPtr_->costToComeHeuristic(sample).value() +
-                                        spaceInformation_->distance(sample->state(), vertex->state());
-                if (sourceDistance < sourceThreshold)
-                {
-                    coverage++;
-                    continue;
-                }
-                double targetDistance = costHelpPtr_->costToGoHeuristic(sample).value() +
-                                        spaceInformation_->distance(vertex->state(), sample->state());
-                if (targetDistance < targetThreshold)
-                {
-                    coverage++;
+                    // Only consider vertices in the closed list => g + h < maxCost.
+                    const auto fvalue =
+                        costHelpPtr_->combineCosts(vertex->getCost(), costHelpPtr_->costToGoHeuristic(vertex));
+                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(fvalue, solutionCost_))
+                    {
+                        continue;
+                    }
+
+                    const double currentMetric = getMetric(vertex);
+                    if (currentMetric < metricForBestSubgoalVertex_)
+                    {
+                        bestSubgoalVertex_ = vertex;
+                        metricForBestSubgoalVertex_ = currentMetric;
+                    }
                 }
             }
-            // Normalize by the number of samples inside the informed set.
-            assert(coverage <= informed);
-            const double normalizedCoverage = coverage / informed;
+        }
 
-            // Compute how promising this vertex is.
-            const double promise = vertex->getCost().value() + costHelpPtr_->costToGoHeuristic(vertex).value();
-            const double normalizedPromise = promise / (solutionCost_.value());
+        void BITstar::ImplicitGraph::banditSubgoal()
+        {
+            // Not implemented.
+        }
 
-            const double alpha = 1.0;
-            return 1.0 / ((1.0 - alpha) * normalizedCoverage + alpha * normalizedPromise);
+        void BITstar::ImplicitGraph::findBestSubgoalVertex()
+        {
+            if (metricType_ == MetricType::Greedy)
+            {
+                greedySubgoal();
+            }
+
+            if (metricType_ == MetricType::Guided)
+            {
+                guidedSubgoal();
+            }
+
+            if (metricType_ == MetricType::Bandit)
+            {
+                banditSubgoal();
+            }
         }
 
         std::pair<unsigned int, unsigned int> BITstar::ImplicitGraph::pruneStartAndGoalVertices()

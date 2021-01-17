@@ -16,12 +16,12 @@ namespace ompl
             // TODO(avk): I think overriding base class dtor is bad here.
             ~MultiEllipsoidSampler() override = default;
 
-            bool sampleUniform(ompl::base::State *statePtr, const ompl::base::Cost &maxCost) override
+            bool sampleUniform(ompl::base::State * /*statePtr*/, const ompl::base::Cost & /*maxCost*/) override
             {
                 return false;
             }
-            bool sampleUniform(ompl::base::State *statePtr, const ompl::base::Cost &minCost,
-                               const ompl::base::Cost &maxCost) override
+            bool sampleUniform(ompl::base::State * /*statePtr*/, const ompl::base::Cost & /*minCost*/,
+                               const ompl::base::Cost & /*maxCost*/) override
             {
                 return false;
             }
@@ -39,7 +39,7 @@ namespace ompl
                 return startPhs->getPhsMeasure(currentCost.value()) + goalPhs->getPhsMeasure(currentCost.value());
             }
 
-            ompl::base::Cost heuristicSolnCost(const ompl::base::State *state) const override
+            ompl::base::Cost heuristicSolnCost(const ompl::base::State * /*state*/) const override
             {
                 return ompl::base::Cost(0);
             }

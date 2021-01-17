@@ -369,10 +369,6 @@ namespace ompl
                     Planner::pis_.haveMoreStartStates() || Planner::pis_.haveMoreGoalStates()))
             {
                 this->iterate();
-                // if (graphPtr_->getGraphSize() > maxGraphSize_)
-                // {
-                //     break;
-                // }
             }
 
             // Announce
@@ -390,8 +386,12 @@ namespace ompl
             {
                 // Any solution
                 this->publishSolution();
+
                 // Uncomment this when you want to log the progress of an algorithm.
-                graphPtr_->generateLog();
+                if (enableLoggingGraphEveryIteration_)
+                {
+                    graphPtr_->generateLog();
+                }
             }
             // No else, no solution to publish
 
@@ -1218,6 +1218,7 @@ namespace ompl
             return graphPtr_->getUseKNearest();
         }
 
+        // LBIT* setters
         void BITstar::setUseLocalSampling(const bool use)
         {
             graphPtr_->setUseLocalSampling(use);
@@ -1232,6 +1233,28 @@ namespace ompl
         void BITstar::setIterationNumber(int iteration)
         {
             graphPtr_->setIterationNumber(iteration);
+        }
+
+        void BITstar::enableLoggingGraphEveryIteration(bool enable)
+        {
+            enableLoggingGraphEveryIteration_ = enable;
+            graphPtr_->enableLoggingGraphEveryIteration(enable);
+        }
+
+        void BITstar::useMetricType(MetricType type)
+        {
+            metricType_ = type;
+            graphPtr_->useMetricType(type);
+        }
+
+        MetricType BITstar::getMetricType() const
+        {
+            return metricType_;
+        }
+
+        void BITstar::setGuidedAlpha(const double alpha)
+        {
+            graphPtr_->setGuidedAlpha(alpha);
         }
 
         void BITstar::setStrictQueueOrdering(bool /* beStrict */)

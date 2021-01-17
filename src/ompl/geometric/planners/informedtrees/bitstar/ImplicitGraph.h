@@ -288,6 +288,19 @@ namespace ompl
                 samples_->list(samples);
                 return samples.size();
             }
+            void enableLoggingGraphEveryIteration(bool enable)
+            {
+                enableLoggingGraphEveryIteration_ = enable;
+            }
+            void useMetricType(MetricType type)
+            {
+                metricType_ = type;
+            }
+            void setGuidedAlpha(const double alpha)
+            {
+                assert(guidedAlpha_ >= 0.0 && guidedAlpha_ <= 1.0);
+                guidedAlpha_ = alpha;
+            }
 
         private:
             // ---
@@ -305,8 +318,9 @@ namespace ompl
             /** \brief Iterates through the search tree vertices to find the best vertex to define union of ellipsoids
              * from start to this vertex, and this vertex to the goal. */
             void findBestSubgoalVertex();
-            double getMetricForSubgoal(const VertexConstPtr &vertex);
-            double getGuidedESTMetric(const VertexConstPtr &vertex);
+            void greedySubgoal();
+            void guidedSubgoal();
+            void banditSubgoal();
 
             // ---
             // High-level primitives pruning the graph.
@@ -457,7 +471,7 @@ namespace ompl
             VertexConstPtr bestSubgoalVertex_{nullptr};
 
             /** \brief The metric corresponding to the best vertex. */
-            double metricForBestSubgoalVertex_{std::numeric_limits<double>::min()};
+            double metricForBestSubgoalVertex_;
             ///////////////////////////////////////////////////////////////////
             /** \brief If being tracked, the vertex closest to the goal (this represents an "approximate" solution). */
             VertexConstPtr closestVertexToGoal_{nullptr};
@@ -513,9 +527,20 @@ namespace ompl
              * batch. */
             std::size_t averageNumOfAllowedFailedAttemptsWhenSampling_{2u};
 
+            ///////////////////////////////////////////////////////////////////
+            // LBIT* parameters
             /** \brief Whether to use local sampling within union of ellipsoids. */
             bool useLocalSampling_{false};
             int iterationNumber_;
+
+            /** \brief Whether to stop the planner as soon as the path changes. */
+            bool enableLoggingGraphEveryIteration_{false};
+
+            /** \brief The type of metric to use for figuring out the best subgoal vertex. */
+            MetricType metricType_;
+
+            /** \brief Alpha to use for guided metric type. */
+            double guidedAlpha_{1.0};
 
         };  // class ImplicitGraph
     }       // namespace geometric
