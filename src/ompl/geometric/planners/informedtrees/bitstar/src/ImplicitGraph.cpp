@@ -382,8 +382,11 @@ namespace ompl
             closestDistanceToGoal_ = std::numeric_limits<double>::infinity();
             closestVertexToGoal_.reset();
 
-            // Log the current best cost and the samples.
-            generateSamplesCostLog();
+            // Save the cost and the total number of samples.
+            VertexPtrVector samples;
+            samples_->list(samples);
+            std::size_t graphSize = samples.size();
+            samplesAndCost_.push_back(std::make_pair<int, double>(graphSize, solutionCost_.value()));
         }
 
         void BITstar::ImplicitGraph::updateStartAndGoalStates(
@@ -969,11 +972,7 @@ namespace ompl
                 }
 
                 // Update the best subgoal vertex before sampling new states.
-                bestSubgoalVertex_ = startVertices_.front();
-                if (useLocalSampling_ && hasExactSolution_)
-                {
-                    findBestSubgoalVertex();
-                }
+                findBestSubgoalVertex();
 
                 // Log the current graph and the search tree.
                 if (enableLoggingGraphEveryIteration_)
@@ -1090,6 +1089,12 @@ namespace ompl
                 return numerator.value() / denominator;
             };
 
+            if (!hasExactSolution_)
+            {
+                bestSubgoalVertex_ = startVertices_.front();
+                return;
+            }
+
             // The vertices in the graph.
             VertexPtrVector vertices;
             samples_->list(vertices);
@@ -1164,6 +1169,12 @@ namespace ompl
                 return (1.0 - guidedAlpha_) * normalizedCoverage + guidedAlpha_ * normalizedFValue;
             };
 
+            if (!hasExactSolution_)
+            {
+                bestSubgoalVertex_ = startVertices_.front();
+                return;
+            }
+
             // The vertices in the graph.
             VertexPtrVector vertices;
             samples_->list(vertices);
@@ -1194,7 +1205,16 @@ namespace ompl
 
         void BITstar::ImplicitGraph::banditSubgoal()
         {
-            // Not implemented.
+            if (!hasExactSolution_)
+            {
+                bestSubgoalVertex_ = startVertices_.front();
+                return;
+            }
+        }
+
+        void BITstar::ImplicitGraph::informedSubgoal()
+        {
+            bestSubgoalVertex_ = startVertices_.front();
         }
 
         void BITstar::ImplicitGraph::findBestSubgoalVertex()
@@ -1203,15 +1223,17 @@ namespace ompl
             {
                 greedySubgoal();
             }
-
-            if (metricType_ == MetricType::Guided)
+            else if (metricType_ == MetricType::Guided)
             {
                 guidedSubgoal();
             }
-
-            if (metricType_ == MetricType::Bandit)
+            else if (metricType_ == MetricType::Bandit)
             {
                 banditSubgoal();
+            }
+            else
+            {
+                informedSubgoal();
             }
         }
 
@@ -1661,28 +1683,15 @@ namespace ompl
                 logfile << std::endl;
 
                 // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal.
-                if (!useLocalSampling_)
+                spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
+                for (const auto &p : position)
                 {
-                    spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
-                    for (const auto &p : position)
-                    {
-                        logfile << p << " ";
-                    }
-                    logfile << std::endl;
-                    logfile << "0 0" << std::endl;
-                    logfile << solutionCost_ << " 0" << std::endl;
+                    logfile << p << " ";
                 }
-                else
-                {
-                    spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
-                    for (const auto &p : position)
-                    {
-                        logfile << p << " ";
-                    }
-                    logfile << std::endl;
-                    logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
-                    logfile << solutionCost_ << " 0" << std::endl;
-                }
+                logfile << std::endl;
+                logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
+                logfile << solutionCost_ << " 0" << std::endl;
+
                 logfile.close();
             }
 
@@ -1755,26 +1764,6 @@ namespace ompl
             }
             logfile.close();
         }
-
-        void BITstar::ImplicitGraph::generateSamplesCostLog() const
-        {
-            // Save the cost and the total number of samples.
-            VertexPtrVector samples;
-            samples_->list(samples);
-            std::size_t graphSize = samples.size();
-
-            std::ofstream logfile;
-            assert(hasExactSolution_);
-            std::string solutionDataFile = "samplesAndCost_" + std::to_string(iterationNumber_) + ".txt";
-            logfile.open(solutionDataFile, std::ios_base::app);
-            logfile << graphSize << " " << solutionCost_ << std::endl;
-        }
-
-        void BITstar::ImplicitGraph::setIterationNumber(int iteration)
-        {
-            iterationNumber_ = iteration;
-        }
-
         /////////////////////////////////////////////////////////////////////////////////////////////
 
         /////////////////////////////////////////////////////////////////////////////////////////////
@@ -1919,11 +1908,6 @@ namespace ompl
         bool BITstar::ImplicitGraph::getUseKNearest() const
         {
             return useKNearest_;
-        }
-
-        void BITstar::ImplicitGraph::setUseLocalSampling(const bool use)
-        {
-            useLocalSampling_ = use;
         }
 
         void BITstar::ImplicitGraph::setJustInTimeSampling(bool useJit)

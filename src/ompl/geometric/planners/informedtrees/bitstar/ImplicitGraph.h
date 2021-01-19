@@ -231,8 +231,6 @@ namespace ompl
             /** \brief Set a different nearest neighbours datastructure. */
             template <template <typename T> class NN>
             void setNearestNeighbors();
-
-            void setUseLocalSampling(const bool use);
             //////////////////
 
             // ---
@@ -279,9 +277,7 @@ namespace ompl
             ////////////////////////////////
             ////////////////// DEBUG
             void generateLog() const;
-            void generateSamplesCostLog() const;
             int hasSolutionIteration_{0};
-            void setIterationNumber(int iteration);
             std::size_t getGraphSize() const
             {
                 VertexPtrVector samples;
@@ -292,7 +288,7 @@ namespace ompl
             {
                 enableLoggingGraphEveryIteration_ = enable;
             }
-            void useMetricType(MetricType type)
+            void setMetricType(const MetricType type)
             {
                 metricType_ = type;
             }
@@ -300,6 +296,10 @@ namespace ompl
             {
                 assert(guidedAlpha_ >= 0.0 && guidedAlpha_ <= 1.0);
                 guidedAlpha_ = alpha;
+            }
+            std::vector<std::pair<int, double>> getSamplesAndCost() const
+            {
+                return samplesAndCost_;
             }
 
         private:
@@ -321,6 +321,7 @@ namespace ompl
             void greedySubgoal();
             void guidedSubgoal();
             void banditSubgoal();
+            void informedSubgoal();
 
             // ---
             // High-level primitives pruning the graph.
@@ -529,18 +530,16 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             // LBIT* parameters
-            /** \brief Whether to use local sampling within union of ellipsoids. */
-            bool useLocalSampling_{false};
-            int iterationNumber_;
-
-            /** \brief Whether to stop the planner as soon as the path changes. */
-            bool enableLoggingGraphEveryIteration_{false};
+            std::vector<std::pair<int, double>> samplesAndCost_;
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
             MetricType metricType_;
 
             /** \brief Alpha to use for guided metric type. */
             double guidedAlpha_{1.0};
+
+            /** \brief Whether to stop the planner as soon as the path changes. */
+            bool enableLoggingGraphEveryIteration_{false};
 
         };  // class ImplicitGraph
     }       // namespace geometric

@@ -1219,20 +1219,9 @@ namespace ompl
         }
 
         // LBIT* setters
-        void BITstar::setUseLocalSampling(const bool use)
+        std::vector<std::pair<int, double>> BITstar::getSamplesAndCost() const
         {
-            graphPtr_->setUseLocalSampling(use);
-            useLocalSampling_ = use;
-        }
-
-        bool BITstar::getUseLocalSampling() const
-        {
-            return useLocalSampling_;
-        }
-
-        void BITstar::setIterationNumber(int iteration)
-        {
-            graphPtr_->setIterationNumber(iteration);
+            return graphPtr_->getSamplesAndCost();
         }
 
         void BITstar::enableLoggingGraphEveryIteration(bool enable)
@@ -1241,10 +1230,25 @@ namespace ompl
             graphPtr_->enableLoggingGraphEveryIteration(enable);
         }
 
-        void BITstar::useMetricType(MetricType type)
+        void BITstar::setMetricType(const std::string type)
         {
-            metricType_ = type;
-            graphPtr_->useMetricType(type);
+            if (type == "bandit")
+            {
+                metricType_ = MetricType::Bandit;
+            }
+            if (type == "guided")
+            {
+                metricType_ = MetricType::Guided;
+            }
+            if (type == "greedy")
+            {
+                metricType_ = MetricType::Greedy;
+            }
+            else
+            {
+                metricType_ = MetricType::Informed;
+            }
+            graphPtr_->setMetricType(metricType_);
         }
 
         MetricType BITstar::getMetricType() const

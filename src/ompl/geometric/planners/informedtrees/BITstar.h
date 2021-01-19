@@ -56,7 +56,8 @@ namespace ompl
         {
             Greedy,
             Guided,
-            Bandit
+            Bandit,
+            Informed
         };
         /**
         @anchor gBITstar
@@ -305,25 +306,20 @@ namespace ompl
             // --
             // LBIT* settings
             // --
-
-            /** \brief Use local sampling */
-            void setUseLocalSampling(const bool use);
-            bool getUseLocalSampling() const;
-
-            /** \brief Set the iteration number of this planner's run. */
-            void setIterationNumber(int iteration);
-
             /** \brief Generate logs saving samples generated in each iteration. */
             void enableLoggingGraphEveryIteration(bool enable);
 
             /** \brief Specify the metric to use. */
-            void useMetricType(MetricType type);
+            void setMetricType(const std::string type);
 
             /** \brief Get metric type. */
             MetricType getMetricType() const;
 
             /** \brief Set alpha for guided metric type */
             void setGuidedAlpha(const double alpha);
+
+            /** \brief Get the samplesAndCost data from implicit graph */
+            std::vector<std::pair<int, double>> getSamplesAndCost() const;
 
         protected:
             // ---
