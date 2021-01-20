@@ -165,8 +165,8 @@ namespace ompl
                 repairQueuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
 
                 // Setup the event and the selector.
-                eventPtr_ = std::make_shared<ConstantDepthEvent>(graphPtr_.get(), 1);
-                selectorPtr_ = std::make_shared<Selector>();
+                eventPtr_->setup(graphPtr_.get());
+                // selectorPtr_->setup(graphPtr_.get());
 
                 // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
                 // NN struct and check for starts/goals, respectively.
@@ -283,6 +283,11 @@ namespace ompl
                 data.markGoalState(graphPtr_->getGoalVertex()->state());
             }
             // No else, no solution
+        }
+
+        std::vector<std::vector<double>> IGLS::getSamplesAndCost() const
+        {
+            return samplesAndCost_;
         }
 
         ompl::base::State const *IGLS::getNextVertexInQueue()
@@ -948,6 +953,11 @@ namespace ompl
             queuePtr_->registerSolutionCost(bestCost_);
             graphPtr_->registerSolutionCost(bestCost_);
 
+            // Save the cost and the total number of samples.
+            std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
+            auto current = std::vector<double>{(double)graphSize, bestCost_.value(), (double)numEdgeCollisionChecks_};
+            samplesAndCost_.push_back(current);
+
             // Brag:
             this->goalMessage();
 
@@ -1203,6 +1213,27 @@ namespace ompl
             {
                 graphPtr_->setNearestNeighbors<NN>();
             }
+        }
+
+        void IGLS::setEvent(const std::string event)
+        {
+            if (event == "shortest_path")
+            {
+                eventPtr_ = std::make_shared<Event>();
+            }
+            else if (event == "constant_depth")
+            {
+                eventPtr_ = std::make_shared<ConstantDepthEvent>(1);
+            }
+            else
+            {
+                eventPtr_ = std::make_shared<Event>();
+            }
+        }
+
+        void IGLS::setSelector(const std::string selector)
+        {
+            selectorPtr_ = std::make_shared<Selector>();
         }
 
         std::string IGLS::bestCostProgressProperty() const

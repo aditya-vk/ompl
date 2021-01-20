@@ -99,6 +99,7 @@ namespace ompl
 
             /** \brief Get results. */
             void getPlannerData(base::PlannerData &data) const override;
+            std::vector<std::vector<double>> getSamplesAndCost() const;
 
             // ---
             // Debugging info.
@@ -177,6 +178,10 @@ namespace ompl
             /** \brief Set a different nearest neighbours datastructure. */
             template <template <typename T> class NN>
             void setNearestNeighbors();
+
+            // IGLS settings.
+            void setEvent(const std::string event);
+            void setSelector(const std::string selector);
 
         protected:
             /** \brief Enable the cascading of rewirings. */
@@ -427,6 +432,9 @@ namespace ompl
 
             /** \brief Whether to stop the planner as soon as the path changes. */
             bool stopOnSolutionChange_{false};
+
+            // Logger settings:
+            std::vector<std::vector<double>> samplesAndCost_;
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl
