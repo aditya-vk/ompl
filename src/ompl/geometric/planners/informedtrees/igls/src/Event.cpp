@@ -8,9 +8,14 @@ namespace ompl
 {
     namespace geometric
     {
-        IGLS::Event::Event(ImplicitGraph *const graphPtr) : graphPtr_(graphPtr)
+        IGLS::Event::Event()
         {
             // Do nothing.
+        }
+
+        void IGLS::Event::setup(ImplicitGraph *graphPtr)
+        {
+            graphPtr_ = graphPtr;
         }
 
         bool IGLS::Event::isTriggered(const VertexPtr &vertex) const
@@ -18,8 +23,7 @@ namespace ompl
             return (vertex == graphPtr_->getGoalVertex());
         }
 
-        IGLS::ConstantDepthEvent::ConstantDepthEvent(ImplicitGraph *const graphPtr, std::size_t depth)
-          : IGLS::Event(graphPtr), depth_(depth)
+        IGLS::ConstantDepthEvent::ConstantDepthEvent(std::size_t depth) : IGLS::Event(), depth_(depth)
         {
             // Do nothing.
         }

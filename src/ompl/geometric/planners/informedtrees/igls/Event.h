@@ -17,29 +17,32 @@ namespace ompl
         class IGLS::Event
         {
         public:
-            explicit Event(ImplicitGraph *const graphPtr);
+            Event();
             virtual ~Event() = default;
+
+            /** \brief Setup the event to provide it with the graph. */
+            void setup(ImplicitGraph *const graphPtr);
 
             /** \brief Returns true if the vertex triggers the event.
              * Default behavior implements LazySP i.e. triggers when vertex is goal. */
             virtual bool isTriggered(const VertexPtr &vertex) const;
 
         protected:
-            ImplicitGraph *const graphPtr_;
+            ImplicitGraph *graphPtr_;
         };
 
         /** \brief An Event.*/
         class IGLS::ConstantDepthEvent : public IGLS::Event
         {
         public:
-            explicit ConstantDepthEvent(ImplicitGraph *const graphPtr, std::size_t depth);
+            explicit ConstantDepthEvent(std::size_t depth);
 
             /** \brief Returns true if the vertex triggers the event.
              * Default behavior implements LazySP i.e. triggers when vertex is goal. */
             bool isTriggered(const VertexPtr &vertex) const override;
 
         private:
-            std::size_t depth_;
+            const std::size_t depth_;
         };
 
     }  // namespace geometric

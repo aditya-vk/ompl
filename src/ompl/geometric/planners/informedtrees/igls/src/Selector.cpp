@@ -30,6 +30,5 @@ namespace ompl
             }
             return edge;
         }
-
     }  // namespace geometric
 }  // namespace ompl
