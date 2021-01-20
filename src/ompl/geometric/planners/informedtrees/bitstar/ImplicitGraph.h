@@ -297,9 +297,17 @@ namespace ompl
                 assert(guidedAlpha_ >= 0.0 && guidedAlpha_ <= 1.0);
                 guidedAlpha_ = alpha;
             }
-            std::vector<std::pair<int, double>> getSamplesAndCost() const
+            std::vector<std::vector<double>> getSamplesAndCost() const
             {
                 return samplesAndCost_;
+            }
+            void incrementEdgeCollisionChecks()
+            {
+                numEdgeCollisionChecks_++;
+            }
+            void setInformedProbability(double p)
+            {
+                informedProbability_ = p;
             }
 
         private:
@@ -530,7 +538,7 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             // LBIT* parameters
-            std::vector<std::pair<int, double>> samplesAndCost_;
+            std::vector<std::vector<double>> samplesAndCost_;
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
             MetricType metricType_;
@@ -540,6 +548,8 @@ namespace ompl
 
             /** \brief Whether to stop the planner as soon as the path changes. */
             bool enableLoggingGraphEveryIteration_{false};
+            int numEdgeCollisionChecks_{0};
+            double informedProbability_{0};
 
         };  // class ImplicitGraph
     }       // namespace geometric

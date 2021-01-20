@@ -319,7 +319,10 @@ namespace ompl
             void setGuidedAlpha(const double alpha);
 
             /** \brief Get the samplesAndCost data from implicit graph */
-            std::vector<std::pair<int, double>> getSamplesAndCost() const;
+            std::vector<std::vector<double>> getSamplesAndCost() const;
+            
+            /** \brief Set informed probability */
+            void setInformedProbability(double probability);
 
         protected:
             // ---

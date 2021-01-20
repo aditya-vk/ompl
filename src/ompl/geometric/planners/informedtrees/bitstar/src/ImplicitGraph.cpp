@@ -229,6 +229,7 @@ namespace ompl
             r_ = 0.0;
             k_rgg_ = 0.0;  // This is a double for better rounding later
             k_ = 0u;
+            numEdgeCollisionChecks_ = 0;
 
             approximationMeasure_ = 0.0;
             minCost_ = ompl::base::Cost(std::numeric_limits<double>::infinity());
@@ -386,7 +387,8 @@ namespace ompl
             VertexPtrVector samples;
             samples_->list(samples);
             std::size_t graphSize = samples.size();
-            samplesAndCost_.push_back(std::make_pair<int, double>(graphSize, solutionCost_.value()));
+            auto current = std::vector<double>{(double)graphSize, solutionCost_.value(), numEdgeCollisionChecks_};
+            samplesAndCost_.push_back(current);
         }
 
         void BITstar::ImplicitGraph::updateStartAndGoalStates(
@@ -1124,49 +1126,52 @@ namespace ompl
 
         void BITstar::ImplicitGraph::guidedSubgoal()
         {
-            auto getMetric = [&](const VertexConstPtr &vertex) {
-                const auto sourceThreshold = vertex->getCost();
-                const auto targetThreshold = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
+            auto getMetric = [&](const VertexPtr &vertex) {
+                // const auto sourceThreshold = vertex->getCost();
+                // const auto targetThreshold = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
 
-                // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
-                std::size_t coverage = 0u;
-                std::size_t informed = 0u;
-                VertexPtrVector samples;
-                samples_->list(samples);
-                for (const auto &sample : samples)
-                {
-                    const auto informedDistance = costHelpPtr_->lowerBoundHeuristicVertex(sample);
-                    if (costHelpPtr_->isCostBetterThan(informedDistance, solutionCost_))
-                    {
-                        informed++;
-                    }
+                // // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
+                // std::size_t coverage = 0u;
+                // std::size_t informed = 0u;
+                // VertexPtrVector samples;
+                // samples_->list(samples);
+                // for (const auto &sample : samples)
+                // {
+                //     const auto informedDistance = costHelpPtr_->lowerBoundHeuristicVertex(sample);
+                //     if (costHelpPtr_->isCostBetterThan(informedDistance, solutionCost_))
+                //     {
+                //         informed++;
+                //     }
 
-                    const auto sourceDistance =
-                        costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(sample),
-                                                   costHelpPtr_->motionCost(sample->state(), vertex->state()));
-                    if (costHelpPtr_->isCostBetterThan(sourceDistance, sourceThreshold))
-                    {
-                        coverage++;
-                        continue;
-                    }
+                //     const auto sourceDistance =
+                //         costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(sample),
+                //                                    costHelpPtr_->motionCost(sample->state(), vertex->state()));
+                //     if (costHelpPtr_->isCostBetterThan(sourceDistance, sourceThreshold))
+                //     {
+                //         coverage++;
+                //         continue;
+                //     }
 
-                    const auto targetDistance =
-                        costHelpPtr_->combineCosts(costHelpPtr_->motionCost(vertex->state(), sample->state()),
-                                                   costHelpPtr_->costToGoHeuristic(sample));
-                    if (costHelpPtr_->isCostBetterThan(targetDistance, targetThreshold))
-                    {
-                        coverage++;
-                    }
-                }
+                //     const auto targetDistance =
+                //         costHelpPtr_->combineCosts(costHelpPtr_->motionCost(vertex->state(), sample->state()),
+                //                                    costHelpPtr_->costToGoHeuristic(sample));
+                //     if (costHelpPtr_->isCostBetterThan(targetDistance, targetThreshold))
+                //     {
+                //         coverage++;
+                //     }
+                // }
 
-                // Normalize by the number of samples inside the informed set.
-                assert(coverage <= informed);
-                const double normalizedCoverage = coverage / informed;
+                // // Normalize by the number of samples inside the informed set.
+                // assert(coverage <= informed);
+                // const double normalizedCoverage = coverage / informed;
+                VertexPtrVector nearest;
+                nearestSamples(vertex, &nearest);
+                const double normalizedCoverage = nearest.size();
 
                 // Compute how promising this vertex is.
                 const auto fvalue = costHelpPtr_->currentHeuristicVertex(vertex);
                 const auto normalizedFValue = fvalue.value() / solutionCost_.value();
-                return (1.0 - guidedAlpha_) * normalizedCoverage + guidedAlpha_ * normalizedFValue;
+                return (1.0 - guidedAlpha_) * normalizedCoverage + guidedAlpha_ * fvalue.value();
             };
 
             if (!hasExactSolution_)
@@ -1219,7 +1224,12 @@ namespace ompl
 
         void BITstar::ImplicitGraph::findBestSubgoalVertex()
         {
-            if (metricType_ == MetricType::Greedy)
+            // Sample between 0 and 1. If rng() < p_informed(), default to informed.
+            if (rng_.uniform01() < informedProbability_ || metricType_ == MetricType::Informed)
+            {
+                informedSubgoal();
+            }
+            else if (metricType_ == MetricType::Greedy)
             {
                 greedySubgoal();
             }
@@ -1233,7 +1243,7 @@ namespace ompl
             }
             else
             {
-                informedSubgoal();
+                bestSubgoalVertex_ = nullptr;
             }
         }
 

@@ -818,6 +818,7 @@ namespace ompl
             else  // This is a new edge, we need to check whether it is feasible.
             {
                 ++numEdgeCollisionChecks_;
+                graphPtr_->incrementEdgeCollisionChecks();
                 return Planner::si_->checkMotion(edge.first->state(), edge.second->state());
             }
         }
@@ -1219,9 +1220,14 @@ namespace ompl
         }
 
         // LBIT* setters
-        std::vector<std::pair<int, double>> BITstar::getSamplesAndCost() const
+        std::vector<std::vector<double>> BITstar::getSamplesAndCost() const
         {
             return graphPtr_->getSamplesAndCost();
+        }
+
+        void BITstar::setInformedProbability(double p)
+        {
+            graphPtr_->setInformedProbability(p);
         }
 
         void BITstar::enableLoggingGraphEveryIteration(bool enable)
@@ -1236,11 +1242,11 @@ namespace ompl
             {
                 metricType_ = MetricType::Bandit;
             }
-            if (type == "guided")
+            else if (type == "guided")
             {
                 metricType_ = MetricType::Guided;
             }
-            if (type == "greedy")
+            else if (type == "greedy")
             {
                 metricType_ = MetricType::Greedy;
             }
