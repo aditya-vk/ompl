@@ -1126,52 +1126,42 @@ namespace ompl
 
         void BITstar::ImplicitGraph::guidedSubgoal()
         {
-            auto getMetric = [&](const VertexPtr &vertex) {
-                // const auto sourceThreshold = vertex->getCost();
-                // const auto targetThreshold = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
+            auto getMetric = [&](const VertexPtr &vertex, const VertexPtrVector &randomSamples) {
+                const auto sourceThreshold = vertex->getCost();
+                const auto targetThreshold = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
 
-                // // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
-                // std::size_t coverage = 0u;
-                // std::size_t informed = 0u;
-                // VertexPtrVector samples;
-                // samples_->list(samples);
-                // for (const auto &sample : samples)
-                // {
-                //     const auto informedDistance = costHelpPtr_->lowerBoundHeuristicVertex(sample);
-                //     if (costHelpPtr_->isCostBetterThan(informedDistance, solutionCost_))
-                //     {
-                //         informed++;
-                //     }
+                // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
+                std::size_t coverage = 0u;
+                std::size_t informed = 0u;
+                VertexPtrVector samples;
+                samples_->list(samples);
+                for (const auto &sample : randomSamples)
+                {
+                    const auto sourceDistance =
+                        costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(sample),
+                                                   costHelpPtr_->motionCost(sample->state(), vertex->state()));
+                    if (costHelpPtr_->isCostBetterThan(sourceDistance, sourceThreshold))
+                    {
+                        coverage++;
+                        continue;
+                    }
 
-                //     const auto sourceDistance =
-                //         costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(sample),
-                //                                    costHelpPtr_->motionCost(sample->state(), vertex->state()));
-                //     if (costHelpPtr_->isCostBetterThan(sourceDistance, sourceThreshold))
-                //     {
-                //         coverage++;
-                //         continue;
-                //     }
+                    const auto targetDistance =
+                        costHelpPtr_->combineCosts(costHelpPtr_->motionCost(vertex->state(), sample->state()),
+                                                   costHelpPtr_->costToGoHeuristic(sample));
+                    if (costHelpPtr_->isCostBetterThan(targetDistance, targetThreshold))
+                    {
+                        coverage++;
+                    }
+                }
 
-                //     const auto targetDistance =
-                //         costHelpPtr_->combineCosts(costHelpPtr_->motionCost(vertex->state(), sample->state()),
-                //                                    costHelpPtr_->costToGoHeuristic(sample));
-                //     if (costHelpPtr_->isCostBetterThan(targetDistance, targetThreshold))
-                //     {
-                //         coverage++;
-                //     }
-                // }
-
-                // // Normalize by the number of samples inside the informed set.
-                // assert(coverage <= informed);
-                // const double normalizedCoverage = coverage / informed;
-                VertexPtrVector nearest;
-                nearestSamples(vertex, &nearest);
-                const double normalizedCoverage = nearest.size();
+                // Normalize by the number of samples inside the informed set.
+                const double normalizedCoverage = coverage / randomSamples.size();
 
                 // Compute how promising this vertex is.
                 const auto fvalue = costHelpPtr_->currentHeuristicVertex(vertex);
                 const auto normalizedFValue = fvalue.value() / solutionCost_.value();
-                return (1.0 - guidedAlpha_) * normalizedCoverage + guidedAlpha_ * fvalue.value();
+                return (1.0 - guidedAlpha_) * normalizedCoverage + guidedAlpha_ * normalizedFValue;
             };
 
             if (!hasExactSolution_)
@@ -1180,30 +1170,18 @@ namespace ompl
                 return;
             }
 
-            // The vertices in the graph.
-            VertexPtrVector vertices;
-            samples_->list(vertices);
+            // The random vertices in the graph.
+            VertexPtrVector randomSamples = selectRandomSamples();
 
             // Process all the vertices after resetting the best metric.
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::max();
-            for (const auto &vertex : vertices)
+            for (const auto &vertex : randomSamples)
             {
-                if (vertex->isInTree())
+                const double currentMetric = getMetric(vertex, randomSamples);
+                if (currentMetric < metricForBestSubgoalVertex_)
                 {
-                    // Only consider vertices in the closed list => g + h < maxCost.
-                    const auto fvalue =
-                        costHelpPtr_->combineCosts(vertex->getCost(), costHelpPtr_->costToGoHeuristic(vertex));
-                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(fvalue, solutionCost_))
-                    {
-                        continue;
-                    }
-
-                    const double currentMetric = getMetric(vertex);
-                    if (currentMetric < metricForBestSubgoalVertex_)
-                    {
-                        bestSubgoalVertex_ = vertex;
-                        metricForBestSubgoalVertex_ = currentMetric;
-                    }
+                    bestSubgoalVertex_ = vertex;
+                    metricForBestSubgoalVertex_ = currentMetric;
                 }
             }
         }
@@ -1500,6 +1478,25 @@ namespace ompl
             // g^(v) + h^(v) >= g_t(x_g)?
             return costHelpPtr_->isCostWorseThanOrEquivalentTo(costHelpPtr_->lowerBoundHeuristicVertex(sample),
                                                                solutionCost_);
+        }
+
+        BITstar::VertexPtrVector BITstar::ImplicitGraph::selectRandomSamples() const
+        {
+            VertexPtrVector samples;
+            samples_->list(samples);
+            VertexPtrVector randomSamples;
+            for (const auto &sample : samples)
+            {
+                if (costHelpPtr_->isCostBetterThan(costHelpPtr_->currentHeuristicVertex(sample), solutionCost_))
+                {
+                    randomSamples.push_back(sample);
+                }
+                if (randomSamples.size() == numberOfSamplesForGuidance_)
+                {
+                    break;
+                }
+            }
+            return randomSamples;
         }
 
         void BITstar::ImplicitGraph::testClosestToGoal(const VertexConstPtr &vertex)

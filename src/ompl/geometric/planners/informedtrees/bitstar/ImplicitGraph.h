@@ -309,6 +309,11 @@ namespace ompl
             {
                 informedProbability_ = p;
             }
+            void setNumberOfSamplesForGuidance(int number)
+            {
+                numberOfSamplesForGuidance_ = number;
+            }
+            VertexPtrVector selectRandomSamples() const;
 
         private:
             // ---
@@ -550,7 +555,7 @@ namespace ompl
             bool enableLoggingGraphEveryIteration_{false};
             int numEdgeCollisionChecks_{0};
             double informedProbability_{0};
-
+            int numberOfSamplesForGuidance_{0};
         };  // class ImplicitGraph
     }       // namespace geometric
 }  // namespace ompl

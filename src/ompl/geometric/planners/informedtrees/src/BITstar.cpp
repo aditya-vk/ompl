@@ -1177,6 +1177,11 @@ namespace ompl
             return samplesPerBatch_;
         }
 
+        void BITstar::setNumberOfSamplesForGuidance(int number)
+        {
+            graphPtr_->setNumberOfSamplesForGuidance(number);
+        }
+
         void BITstar::setUseKNearest(bool useKNearest)
         {
             // Store

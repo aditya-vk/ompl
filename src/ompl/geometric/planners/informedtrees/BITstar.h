@@ -220,6 +220,9 @@ namespace ompl
             /** \brief Get the number of samplers per batch. */
             unsigned int getSamplesPerBatch() const;
 
+            /** \brief Set the number of samples for guidance */
+            void setNumberOfSamplesForGuidance(int number);
+
             /** \brief Enable a k-nearest search for instead of an r-disc search. */
             void setUseKNearest(bool useKNearest);
 
@@ -320,7 +323,7 @@ namespace ompl
 
             /** \brief Get the samplesAndCost data from implicit graph */
             std::vector<std::vector<double>> getSamplesAndCost() const;
-            
+
             /** \brief Set informed probability */
             void setInformedProbability(double probability);
 
