@@ -290,6 +290,11 @@ namespace ompl
             return samplesAndCost_;
         }
 
+        std::vector<std::vector<double>> IGLS::getShortestPaths() const
+        {
+            return shortestPaths_;
+        }
+
         ompl::base::State const *IGLS::getNextVertexInQueue()
         {
             // The next vertex in the queue.
@@ -946,6 +951,14 @@ namespace ompl
         {
             // We have an exact solution, update tracked costs.
             hasExactSolution_ = true;
+            // Cache parent as a neighbor for each child.
+            this->cacheNeighbors();
+
+            // If the cost has not changed, nothing to brag I suppose.
+            if (!costHelpPtr_->isCostBetterThan(graphPtr_->getGoalVertex()->getCost(), bestCost_))
+            {
+                return;
+            }
             bestCost_ = graphPtr_->getGoalVertex()->getCost();
             bestLength_ = graphPtr_->getGoalVertex()->getDepth() + 1u;
 
@@ -955,8 +968,28 @@ namespace ompl
 
             // Save the cost and the total number of samples.
             std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
-            auto current = std::vector<double>{(double)graphSize, bestCost_.value(), (double)numEdgeCollisionChecks_};
+            std::size_t verticesRewired = repairQueuePtr_->numVerticesPopped();
+            auto current = std::vector<double>{(double)graphSize, bestCost_.value(), (double)numEdgeCollisionChecks_,
+                                               (double)verticesRewired};
             samplesAndCost_.push_back(current);
+
+            // Save the shortest path.
+            std::vector<double> currentPosition, currentShortestPath;
+            VertexPtr curVertex = graphPtr_->getGoalVertex();
+            Planner::si_->getStateSpace()->copyToReals(currentPosition, curVertex->state());
+            for (const auto &p : currentPosition)
+            {
+                currentShortestPath.push_back(p);
+            }
+            for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParent())
+            {
+                Planner::si_->getStateSpace()->copyToReals(currentPosition, curVertex->getParent()->state());
+                for (const auto &p : currentPosition)
+                {
+                    currentShortestPath.push_back(p);
+                }
+            }
+            shortestPaths_.push_back(currentShortestPath);
 
             // Brag:
             this->goalMessage();
@@ -972,9 +1005,6 @@ namespace ompl
                 // conveniently allows us to reuse code.
                 Planner::pdef_->getIntermediateSolutionCallback()(this, this->bestPathFromGoalToStart(), bestCost_);
             }
-
-            // Cache parent as a neighbor for each child.
-            this->cacheNeighbors();
         }
 
         void IGLS::cacheNeighbors()
@@ -1002,7 +1032,6 @@ namespace ompl
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
                         graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
                         graphPtr_->numVertices(), graphPtr_->getConnectivityR());
-            generateSamplesCostLog();
         }
 
         void IGLS::endSuccessMessage() const
@@ -1013,7 +1042,6 @@ namespace ompl
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
                         graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
                         graphPtr_->numVertices());
-            generateSamplesCostLog();
         }
 
         void IGLS::endFailureMessage() const
@@ -1215,7 +1243,7 @@ namespace ompl
             }
         }
 
-        void IGLS::setEvent(const std::string event)
+        void IGLS::setEvent(const std::string event, const double event_value)
         {
             if (event == "shortest_path")
             {
@@ -1223,7 +1251,7 @@ namespace ompl
             }
             else if (event == "constant_depth")
             {
-                eventPtr_ = std::make_shared<ConstantDepthEvent>(1);
+                eventPtr_ = std::make_shared<ConstantDepthEvent>((int)event_value);
             }
             else
             {

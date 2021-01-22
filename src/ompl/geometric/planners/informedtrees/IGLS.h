@@ -100,6 +100,7 @@ namespace ompl
             /** \brief Get results. */
             void getPlannerData(base::PlannerData &data) const override;
             std::vector<std::vector<double>> getSamplesAndCost() const;
+            std::vector<std::vector<double>> getShortestPaths() const;
 
             // ---
             // Debugging info.
@@ -180,7 +181,7 @@ namespace ompl
             void setNearestNeighbors();
 
             // IGLS settings.
-            void setEvent(const std::string event);
+            void setEvent(const std::string event, const double event_value = 1);
             void setSelector(const std::string selector);
 
         protected:
@@ -435,6 +436,7 @@ namespace ompl
 
             // Logger settings:
             std::vector<std::vector<double>> samplesAndCost_;
+            std::vector<std::vector<double>> shortestPaths_;
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl
