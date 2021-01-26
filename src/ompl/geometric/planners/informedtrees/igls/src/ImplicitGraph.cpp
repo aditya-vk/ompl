@@ -214,7 +214,7 @@ namespace ompl
             }
         }
 
-        void IGLS::ImplicitGraph::getGraphAsPlannerData(ompl::base::PlannerData &data) const
+        void IGLS::ImplicitGraph::getGraphAsPlannerData(ompl::base::PlannerData &data)
         {
             ASSERT_SETUP
 
@@ -229,6 +229,7 @@ namespace ompl
             {
                 // Get the samples as a vector.
                 VertexPtrVector samples;
+                VertexPtrVector neighbors;
                 samples_->list(samples);
 
                 // Iterate through the samples.
@@ -236,21 +237,15 @@ namespace ompl
                 {
                     // Make sure the sample is not destructed before BIT* is.
                     liveStates.insert(sample);
+                    this->nearestSamples(sample, &neighbors);
+                    for (const auto &s : neighbors)
+                    {
+                        data.addEdge(ompl::base::PlannerDataVertex(sample->state(), sample->getId()),
+                                     ompl::base::PlannerDataVertex(s->state(), s->getId()));
+                    }
 
                     // Add sample.
-                    if (!sample->isRoot())
-                    {
-                        data.addVertex(ompl::base::PlannerDataVertex(sample->state(), sample->getId()));
-
-                        // Add incoming edge.
-                        if (sample->hasParent())
-                        {
-                            data.addEdge(ompl::base::PlannerDataVertex(sample->getParent()->state(),
-                                                                       sample->getParent()->getId()),
-                                         ompl::base::PlannerDataVertex(sample->state(), sample->getId()));
-                        }
-                    }
-                    else
+                    if (sample->isRoot())
                     {
                         data.addStartVertex(ompl::base::PlannerDataVertex(sample->state(), sample->getId()));
                     }

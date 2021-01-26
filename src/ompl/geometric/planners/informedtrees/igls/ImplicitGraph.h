@@ -74,7 +74,7 @@ namespace ompl
             void nearestSamples(const VertexPtr &vertex, VertexPtrVector *neighbourSamples);
 
             /** \brief Adds the graph to the given PlannerData struct. */
-            void getGraphAsPlannerData(ompl::base::PlannerData &data) const;
+            void getGraphAsPlannerData(ompl::base::PlannerData &data);
 
             /** \brief Get the k of this k-nearest RGG. */
             unsigned int getConnectivityK() const;

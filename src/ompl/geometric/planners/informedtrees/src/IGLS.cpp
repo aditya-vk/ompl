@@ -248,6 +248,10 @@ namespace ompl
                 this->iterate();
             }
 
+            /// Animation
+            saveVertexIDsForAnimation();
+            /// Animation
+
             // Announce
             if (hasExactSolution_)
             {
@@ -402,6 +406,10 @@ namespace ompl
                 // Select an edge along the most promising subpath.
                 VertexPtrVector reverseSubpath = pathFromVertexToStart(queuePtr_->getFrontVertex());
                 VertexPtrPair edge = selectorPtr_->edgeToEvaluate(reverseSubpath);
+                /// Animation
+                saveSubpathForAnimation(reverseSubpath);
+                saveEdgeSelectedForEvaluation(edge);
+                /// Animation
 
                 // Check if we have computed a new solution.
                 // Unless a path to the goal is completely evaluated, selector always returns an edge.
@@ -516,11 +524,17 @@ namespace ompl
             {
                 edge.first->blacklistChild(edge.second);
                 edge.first->removeChild(edge.second);
+                /// Animation
+                saveEdgeEvaluationForAnimation(edge, false);
+                /// Animation
                 repair(edge.second);
             }
             else
             {
                 edge.first->whitelistChild(edge.second);
+                /// Animation
+                saveEdgeEvaluationForAnimation(edge, true);
+                /// Animation
             }
         }
 
@@ -1394,6 +1408,65 @@ namespace ompl
                     Planner::si_->getStateSpace()->copyToReals(target, neighbor->state());
                     logfile << source[0] << " " << source[1] << " " << target[0] << " " << target[1] << std::endl;
                 }
+            }
+            logfile.close();
+        }
+
+        void IGLS::saveEdgeEvaluationForAnimation(const VertexPtrPair &edge, bool isValid) const
+        {
+            std::ofstream logfile;
+            std::string base = "/home/adityavk/workspaces/research-ws/code/src/igls_animations/";
+            std::string filename = base + "edge_evaluation.txt";
+            logfile.open(filename, std::ios_base::app);
+            logfile << edge.first->getId() << " " << edge.second->getId() << " " << isValid << std::endl;
+            logfile.close();
+        }
+
+        void IGLS::saveEdgeSelectedForEvaluation(const VertexPtrPair &edge) const
+        {
+            if (edge == std::pair<VertexPtr, VertexPtr>())
+            {
+                return;
+            }
+            std::ofstream logfile;
+            std::string base = "/home/adityavk/workspaces/research-ws/code/src/igls_animations/";
+            std::string filename = base + "edge_selection.txt";
+            logfile.open(filename, std::ios_base::app);
+            logfile << edge.first->getId() << " " << edge.second->getId() << std::endl;
+            logfile.close();
+        }
+
+        void IGLS::saveSubpathForAnimation(const VertexPtrVector &path) const
+        {
+            std::ofstream logfile;
+            std::string base = "/home/adityavk/workspaces/research-ws/code/src/igls_animations/";
+            std::string filename = base + "path_proposal.txt";
+            logfile.open(filename, std::ios_base::app);
+            for (const auto &p : path)
+            {
+                logfile << p->getId() << " ";
+            }
+            logfile << std::endl;
+            logfile.close();
+        }
+
+        void IGLS::saveVertexIDsForAnimation() const
+        {
+            std::ofstream logfile;
+            std::string base = "/home/adityavk/workspaces/research-ws/code/src/igls_animations/";
+            std::string filename = base + "vertex_ids.txt";
+            logfile.open(filename, std::ios_base::app);
+            auto samples = graphPtr_->getCopyOfSamples();
+            std::vector<double> position;
+            for (const auto &s : samples)
+            {
+                Planner::si_->getStateSpace()->copyToReals(position, s->state());
+                logfile << s->getId() << " ";
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
             }
             logfile.close();
         }

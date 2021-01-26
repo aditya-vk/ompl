@@ -418,6 +418,12 @@ namespace ompl
             void printGraph() const;
             void printCompleteGraph() const;
 
+            /// Animation
+            void saveEdgeEvaluationForAnimation(const VertexPtrPair &edge, bool isValid) const;
+            void saveEdgeSelectedForEvaluation(const VertexPtrPair &edge) const;
+            void saveSubpathForAnimation(const VertexPtrVector &subpath) const;
+            void saveVertexIDsForAnimation() const;
+
             // ---
             // Parameters - Set defaults in construction/setup and do not reset in clear.
             // ---
@@ -442,15 +448,3 @@ namespace ompl
 }  // namespace ompl
 
 #endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_
-
-/** Notes:
- *
- * 1.Queue is always strictly ordered.
- *      [BIT* has a setStrictQueueOrdering of edges.]
- * 2. ABIT* settings are currently disabled.
- * 3. Rewiring of edges is never delayed.
- * 4. Disabling just in time sampling.
- * 5. Unconnected samples are not dropped without consideration.
- * 6. Only exact solutions are currently considered.
- *
- * */
