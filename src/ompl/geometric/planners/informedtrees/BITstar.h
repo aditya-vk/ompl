@@ -220,9 +220,6 @@ namespace ompl
             /** \brief Get the number of samplers per batch. */
             unsigned int getSamplesPerBatch() const;
 
-            /** \brief Set the number of samples for guidance */
-            void setNumberOfSamplesForGuidance(int number);
-
             /** \brief Enable a k-nearest search for instead of an r-disc search. */
             void setUseKNearest(bool useKNearest);
 

@@ -42,6 +42,7 @@
 #include "ompl/datastructures/NearestNeighbors.h"
 #include "ompl/geometric/planners/informedtrees/BITstar.h"
 #include "ompl/geometric/planners/informedtrees/bitstar/MultiEllipsoidSampler.h"
+#include "ompl/geometric/planners/informedtrees/bitstar/LandmarkUtils.h"
 
 namespace ompl
 {
@@ -313,6 +314,7 @@ namespace ompl
             {
                 landmarkGraphSize_ = size;
             }
+            void setupLandmarkGraph();
 
         private:
             // ---
@@ -554,7 +556,9 @@ namespace ompl
             bool enableLoggingGraphEveryIteration_{false};
             int numEdgeCollisionChecks_{0};
             double informedProbability_{0};
-            int numberOfSamplesForGuidance_{0};
+            std::size_t landmarkGraphSize_{100u};
+            VertexPtrVector landmarkSamples_;
+            std::shared_ptr<HaltonSampler> haltonSampler_{nullptr};
         };  // class ImplicitGraph
     }       // namespace geometric
 }  // namespace ompl

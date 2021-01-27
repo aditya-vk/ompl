@@ -126,6 +126,7 @@ namespace ompl
 
             // Add any start and goals vertices that exist to the queue, but do NOT wait for any more goals:
             this->updateStartAndGoalStates(inputStates, ompl::base::plannerAlwaysTerminatingCondition());
+            this->setupLandmarkGraph();
 
             // Get the measure of the problem
             approximationMeasure_ = spaceInformation_->getSpaceMeasure();
@@ -1042,6 +1043,41 @@ namespace ompl
             // No else, the samples are up to date
         }
 
+        void BITstar::ImplicitGraph::setupLandmarkGraph()
+        {
+            landmarkSamples_.reserve(landmarkGraphSize_);
+            int index = 0;
+            std::size_t numSampled = 0u;
+            while (numSampled < landmarkGraphSize_)
+            {
+                // The new vertex.
+                auto newState = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, approximationId_);
+
+                // Generate a halton sample.
+                // TODO(avk): Write a Halton Sampler class.
+                haltonSampler_->sample(index, newState->state());
+                index++;
+
+                // If the state is collision free, add it to the set of free states.
+                // Treating the halton samples same as uniform samples.
+                ++numStateCollisionChecks_;
+                if (spaceInformation_->isValid(newState->state()))
+                {
+                    landmarkSamples_.push_back(newState);
+
+                    // Update the number of uniformly distributed states
+                    ++numUniformStates_;
+
+                    // Update the number of samples.
+                    ++numSamples_;
+                    numSampled++;
+                }
+            }
+
+            // Add the new state as a sample to the graph.
+            this->addToSamples(landmarkSamples_);
+        }
+
         void BITstar::ImplicitGraph::updateVertexClosestToGoal()
         {
             if (static_cast<bool>(samples_))
@@ -1126,43 +1162,7 @@ namespace ompl
 
         void BITstar::ImplicitGraph::guidedSubgoal()
         {
-            auto getMetric = [&](const VertexPtr &vertex, const VertexPtrVector &randomSamples) {
-                const auto sourceThreshold = vertex->getCost();
-                const auto targetThreshold = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
-
-                // Iterate through all the points in the space. Compute the number of vertices in the ellipses.
-                std::size_t coverage = 0u;
-                std::size_t informed = 0u;
-                VertexPtrVector samples;
-                samples_->list(samples);
-                for (const auto &sample : randomSamples)
-                {
-                    const auto sourceDistance =
-                        costHelpPtr_->combineCosts(costHelpPtr_->costToComeHeuristic(sample),
-                                                   costHelpPtr_->motionCost(sample->state(), vertex->state()));
-                    if (costHelpPtr_->isCostBetterThan(sourceDistance, sourceThreshold))
-                    {
-                        coverage++;
-                        continue;
-                    }
-
-                    const auto targetDistance =
-                        costHelpPtr_->combineCosts(costHelpPtr_->motionCost(vertex->state(), sample->state()),
-                                                   costHelpPtr_->costToGoHeuristic(sample));
-                    if (costHelpPtr_->isCostBetterThan(targetDistance, targetThreshold))
-                    {
-                        coverage++;
-                    }
-                }
-
-                // Normalize by the number of samples inside the informed set.
-                const double normalizedCoverage = coverage / randomSamples.size();
-
-                // Compute how promising this vertex is.
-                const auto fvalue = costHelpPtr_->currentHeuristicVertex(vertex);
-                const auto normalizedFValue = fvalue.value() / solutionCost_.value();
-                return (1.0 - guidedAlpha_) * normalizedCoverage + guidedAlpha_ * normalizedFValue;
-            };
+            auto getMetric = [&](const VertexPtr &vertex) { return 0.0; };
 
             if (!hasExactSolution_)
             {
@@ -1170,14 +1170,11 @@ namespace ompl
                 return;
             }
 
-            // The random vertices in the graph.
-            VertexPtrVector randomSamples = selectRandomSamples();
-
             // Process all the vertices after resetting the best metric.
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::max();
-            for (const auto &vertex : randomSamples)
+            for (const auto &vertex : landmarkSamples_)
             {
-                const double currentMetric = getMetric(vertex, randomSamples);
+                const double currentMetric = getMetric(vertex);
                 if (currentMetric < metricForBestSubgoalVertex_)
                 {
                     bestSubgoalVertex_ = vertex;
@@ -1480,25 +1477,6 @@ namespace ompl
                                                                solutionCost_);
         }
 
-        BITstar::VertexPtrVector BITstar::ImplicitGraph::selectRandomSamples() const
-        {
-            VertexPtrVector samples;
-            samples_->list(samples);
-            VertexPtrVector randomSamples;
-            for (const auto &sample : samples)
-            {
-                if (costHelpPtr_->isCostBetterThan(costHelpPtr_->currentHeuristicVertex(sample), solutionCost_))
-                {
-                    randomSamples.push_back(sample);
-                }
-                if (randomSamples.size() == numberOfSamplesForGuidance_)
-                {
-                    break;
-                }
-            }
-            return randomSamples;
-        }
-
         void BITstar::ImplicitGraph::testClosestToGoal(const VertexConstPtr &vertex)
         {
             // Find the shortest distance between the given vertex and a goal
@@ -1554,6 +1532,7 @@ namespace ompl
             {
                 // We are not dropping samples but pruning is enabled, then all samples are uniform.
                 numUniformStates = samples_->size();
+                assert(numUniformStates > 0);
             }
             else
             {
