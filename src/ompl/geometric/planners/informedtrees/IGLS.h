@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include <fstream>
+#include <functional>
 
 #include "ompl/base/Planner.h"
 #include "ompl/base/samplers/InformedStateSampler.h"
@@ -39,6 +40,7 @@ namespace ompl
             /** \brief The event defining the interleaving of search and evaluation. */
             class Event;
             class ConstantDepthEvent;
+            class SubpathExistenceEvent;
             /** \brief The selector defining the strategy to choose edges to evaluate. */
             class Selector;
 
@@ -181,8 +183,12 @@ namespace ompl
             void setNearestNeighbors();
 
             // IGLS settings.
-            void setEvent(const std::string event, const double event_value = 1);
-            void setSelector(const std::string selector);
+            void useShortestPathEvent();
+            void useConstantDepthEvent(const std::size_t depth);
+            void useSubpathExistenceEvent(
+                const double threshold,
+                const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
+            void useForwardSelector();
 
         protected:
             /** \brief Enable the cascading of rewirings. */

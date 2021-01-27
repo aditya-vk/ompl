@@ -13,7 +13,7 @@ namespace ompl
         @par Short description
         A class to determine if the search need to pause for collision checking edges. */
 
-        /** \brief An Event.*/
+        /** \brief ShortestPathEvent.*/
         class IGLS::Event
         {
         public:
@@ -31,18 +31,37 @@ namespace ompl
             ImplicitGraph *graphPtr_;
         };
 
-        /** \brief An Event.*/
+        /** \brief ConstantDepthEvent.*/
         class IGLS::ConstantDepthEvent : public IGLS::Event
         {
         public:
-            explicit ConstantDepthEvent(std::size_t depth);
+            explicit ConstantDepthEvent(const std::size_t depth);
 
             /** \brief Returns true if the vertex triggers the event.
-             * Default behavior implements LazySP i.e. triggers when vertex is goal. */
+             * Triggers when the lazy depth of the vertex in the tree is \c depth. */
             bool isTriggered(const VertexPtr &vertex) const override;
 
         private:
+            /** \brief Denotes the depth at which a vertex should trigger. */
             const std::size_t depth_;
+        };
+
+        /** \brief SubpathExistenceEvent.*/
+        class IGLS::SubpathExistenceEvent : public IGLS::Event
+        {
+        public:
+            explicit SubpathExistenceEvent(
+                const double threshold,
+                const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
+
+            /** \brief Returns true if the vertex triggers the event.
+             * Triggers when the lazy subpath to vertex has existence probability less than \c threshold. */
+            bool isTriggered(const VertexPtr &vertex) const override;
+
+        private:
+            /** \brief Denotes the threshold below which the the event triggers. */
+            const double threshold_;
+            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction_;
         };
 
     }  // namespace geometric

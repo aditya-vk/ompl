@@ -164,8 +164,16 @@ namespace ompl
                 queuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
                 repairQueuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
 
-                // Setup the event and the selector.
+                // Setup the event and the selector. If either is not constructed yet, default.
+                if (!eventPtr_)
+                {
+                    eventPtr_ = std::make_shared<Event>();
+                }
                 eventPtr_->setup(graphPtr_.get());
+                if (!selectorPtr_)
+                {
+                    selectorPtr_ = std::make_shared<Selector>();
+                }
                 // selectorPtr_->setup(graphPtr_.get());
 
                 // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
@@ -1243,23 +1251,24 @@ namespace ompl
             }
         }
 
-        void IGLS::setEvent(const std::string event, const double event_value)
+        void IGLS::useShortestPathEvent()
         {
-            if (event == "shortest_path")
-            {
-                eventPtr_ = std::make_shared<Event>();
-            }
-            else if (event == "constant_depth")
-            {
-                eventPtr_ = std::make_shared<ConstantDepthEvent>((int)event_value);
-            }
-            else
-            {
-                eventPtr_ = std::make_shared<Event>();
-            }
+            eventPtr_ = std::make_shared<Event>();
         }
 
-        void IGLS::setSelector(const std::string selector)
+        void IGLS::useConstantDepthEvent(const std::size_t depth)
+        {
+            eventPtr_ = std::make_shared<ConstantDepthEvent>(depth);
+        }
+
+        void IGLS::useSubpathExistenceEvent(
+            const double threshold,
+            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
+        {
+            eventPtr_ = std::make_shared<SubpathExistenceEvent>(threshold, probabilityFunction);
+        }
+
+        void IGLS::useForwardSelector()
         {
             selectorPtr_ = std::make_shared<Selector>();
         }

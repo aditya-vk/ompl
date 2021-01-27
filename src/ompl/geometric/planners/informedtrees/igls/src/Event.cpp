@@ -45,5 +45,43 @@ namespace ompl
             }
             return false;
         }
+
+        IGLS::SubpathExistenceEvent::SubpathExistenceEvent(
+            const double threshold,
+            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
+          : IGLS::Event(), threshold_(threshold), probabilityFunction_(probabilityFunction)
+        {
+            // Do nothing.
+        }
+
+        bool IGLS::SubpathExistenceEvent::isTriggered(const VertexPtr &vertex) const
+        {
+            if (vertex->isRoot())
+            {
+                return false;
+            }
+            if (vertex->getId() == graphPtr_->getGoalVertex()->getId())
+            {
+                return true;
+            }
+            // Get the probability of the subpath.
+            VertexPtr currVertex = vertex;
+            double existenceProbability = 1.0;
+            while (currVertex->getParent())
+            {
+                // If the edge is evaluated, continue to the next edge in the subpath.
+                if (vertex->hasWhitelistedChild(vertex->getParent()) ||
+                    vertex->getParent()->hasWhitelistedChild(vertex))
+                {
+                    continue;
+                }
+                existenceProbability *= probabilityFunction_(vertex->getParent(), vertex);
+                if (existenceProbability < threshold_)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }  // namespace geometric
 }  // namespace ompl
