@@ -310,9 +310,10 @@ namespace ompl
             {
                 informedProbability_ = p;
             }
-            void setLandmarkGraphSize(const std::size_t size)
+            void setLandmarkGraph(const std::size_t size, const std::vector<int> primes)
             {
                 landmarkGraphSize_ = size;
+                landmarkPrimes_ = primes;
             }
             void setupLandmarkGraph();
 
@@ -559,6 +560,7 @@ namespace ompl
             std::size_t landmarkGraphSize_{100u};
             VertexPtrVector landmarkSamples_;
             std::shared_ptr<HaltonSampler> haltonSampler_{nullptr};
+            std::vector<int> landmarkPrimes_;
         };  // class ImplicitGraph
     }       // namespace geometric
 }  // namespace ompl

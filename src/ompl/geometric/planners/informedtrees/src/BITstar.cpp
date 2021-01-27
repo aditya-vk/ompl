@@ -1236,9 +1236,9 @@ namespace ompl
             graphPtr_->enableLoggingGraphEveryIteration(enable);
         }
 
-        void BITstar::setLandmarkGraphSize(const std::size_t size)
+        void BITstar::setLandmarkGraph(const std::size_t size, const std::vector<int> primes)
         {
-            graphPtr_->setLandmarkGraphSize(size);
+            graphPtr_->setLandmarkGraph(size, primes);
         }
 
         void BITstar::setMetricType(const std::string type)

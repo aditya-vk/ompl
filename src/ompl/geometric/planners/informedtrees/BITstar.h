@@ -310,7 +310,7 @@ namespace ompl
             void enableLoggingGraphEveryIteration(bool enable);
 
             /** \brief Set the landmark graph size. */
-            void setLandmarkGraphSize(const std::size_t size);
+            void setLandmarkGraph(const std::size_t size, const std::vector<int> primes);
 
             /** \brief Specify the metric to use. */
             void setMetricType(const std::string type);

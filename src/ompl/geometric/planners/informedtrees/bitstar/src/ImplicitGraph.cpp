@@ -126,6 +126,11 @@ namespace ompl
 
             // Add any start and goals vertices that exist to the queue, but do NOT wait for any more goals:
             this->updateStartAndGoalStates(inputStates, ompl::base::plannerAlwaysTerminatingCondition());
+
+            if (!haltonSampler_)
+            {
+                haltonSampler_ = std::make_shared<HaltonSampler>(landmarkPrimes_, spaceInformation_);
+            }
             this->setupLandmarkGraph();
 
             // Get the measure of the problem
