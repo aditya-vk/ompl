@@ -309,11 +309,10 @@ namespace ompl
             {
                 informedProbability_ = p;
             }
-            void setNumberOfSamplesForGuidance(int number)
+            void setLandmarkGraphSize(const std::size_t size)
             {
-                numberOfSamplesForGuidance_ = number;
+                landmarkGraphSize_ = size;
             }
-            VertexPtrVector selectRandomSamples() const;
 
         private:
             // ---

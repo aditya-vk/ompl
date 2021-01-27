@@ -1241,6 +1241,11 @@ namespace ompl
             graphPtr_->enableLoggingGraphEveryIteration(enable);
         }
 
+        void BITstar::setLandmarkGraphSize(const std::size_t size)
+        {
+            graphPtr_->setLandmarkGraphSize(size);
+        }
+
         void BITstar::setMetricType(const std::string type)
         {
             if (type == "bandit")
