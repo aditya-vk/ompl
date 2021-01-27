@@ -1273,6 +1273,12 @@ namespace ompl
             selectorPtr_ = std::make_shared<Selector>();
         }
 
+        void IGLS::useFailfastSelector(
+            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
+        {
+            selectorPtr_ = std::make_shared<FailfastSelector>(probabilityFunction);
+        }
+
         std::string IGLS::bestCostProgressProperty() const
         {
             return ompl::toString(this->bestCost().value());

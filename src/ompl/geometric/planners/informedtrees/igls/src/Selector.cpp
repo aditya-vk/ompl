@@ -22,10 +22,42 @@ namespace ompl
                 // If the edge has been evaluated, continue.
                 const VertexPtr &u = reversePath[i];
                 const VertexPtr &v = reversePath[i - 1];
-                if (!u->hasEvaluatedChild(v) && !v->hasEvaluatedChild(u))
+                if (!u->hasWhitelistedChild(v) && !v->hasWhitelistedChild(u))
                 {
                     edge = std::make_pair(u, v);
                     break;
+                }
+            }
+            return edge;
+        }
+
+        IGLS::FailfastSelector::FailfastSelector(
+            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
+          : probabilityFunction_(probabilityFunction)
+        {
+            // Do nothing.
+        }
+        IGLS::VertexPtrPair IGLS::FailfastSelector::edgeToEvaluate(const VertexPtrVector &reversePath) const
+        {
+            assert(reversePath.size() >= 2);
+
+            // Iterate through edges.
+            VertexPtrPair edge;
+            double minimumProbability = 1.0;
+            for (std::size_t i = 0; i < reversePath.size() - 1; i++)
+            {
+                // If the edge has been evaluated, continue.
+                const VertexPtr &u = reversePath[i + 1];
+                const VertexPtr &v = reversePath[i];
+                if (u->hasWhitelistedChild(v) || v->hasWhitelistedChild(u))
+                {
+                    continue;
+                }
+                double edgeProbability = probabilityFunction_(u, v);
+                if (edgeProbability <= minimumProbability)
+                {
+                    edge = std::make_pair(u, v);
+                    minimumProbability = edgeProbability;
                 }
             }
             return edge;

@@ -61,6 +61,8 @@ namespace ompl
         private:
             /** \brief Denotes the threshold below which the the event triggers. */
             const double threshold_;
+
+            /** \brief Returns probability of existence of edge between two vertices. */
             const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction_;
         };
 

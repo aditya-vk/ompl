@@ -43,6 +43,7 @@ namespace ompl
             class SubpathExistenceEvent;
             /** \brief The selector defining the strategy to choose edges to evaluate. */
             class Selector;
+            class FailfastSelector;
 
             // ---
             // Aliases.
@@ -189,6 +190,8 @@ namespace ompl
                 const double threshold,
                 const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
             void useForwardSelector();
+            void
+            useFailfastSelector(const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
 
         protected:
             /** \brief Enable the cascading of rewirings. */
