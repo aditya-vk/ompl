@@ -227,7 +227,7 @@ namespace ompl
                 return ompl::base::Cost(factor * cost.value());
             }
 
-            /** \brief Inflate a cost by a given factor. */
+            /** \brief Subtracts \c b from \c a i.e. returns (a - b). */
             inline ompl::base::Cost subtractCost(const ompl::base::Cost &a, const ompl::base::Cost &b) const
             {
                 return ompl::base::Cost(a.value() - b.value());
