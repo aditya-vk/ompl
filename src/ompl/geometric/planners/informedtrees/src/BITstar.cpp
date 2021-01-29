@@ -1230,6 +1230,11 @@ namespace ompl
             graphPtr_->setInformedProbability(p);
         }
 
+        void BITstar::useBanditSelector(std::function<int()> &selectVertex, std::function<void(double)> &updateVertex)
+        {
+            graphPtr_->useBanditSelector(selectVertex, updateVertex);
+        }
+
         void BITstar::enableLoggingGraphEveryIteration(bool enable)
         {
             enableLoggingGraphEveryIteration_ = enable;

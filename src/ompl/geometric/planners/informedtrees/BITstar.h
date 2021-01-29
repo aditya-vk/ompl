@@ -327,6 +327,9 @@ namespace ompl
             /** \brief Set informed probability */
             void setInformedProbability(double probability);
 
+            /** \brief Use bandit functions. */
+            void useBanditSelector(std::function<int()> &selectVertex, std::function<void(double)> &updateVertex);
+
         protected:
             // ---
             // The settings that turn BIT* into ABIT*.

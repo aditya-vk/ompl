@@ -316,6 +316,11 @@ namespace ompl
                 landmarkPrimes_ = primes;
             }
             void setupLandmarkGraph();
+            void useBanditSelector(std::function<int()> &selectVertex, std::function<void(double)> &updateVertex)
+            {
+                banditSelectVertexFunc_ = selectVertex;
+                banditUpdateVertexFunc_ = updateVertex;
+            }
 
         private:
             // ---
@@ -561,6 +566,8 @@ namespace ompl
             VertexPtrVector landmarkSamples_;
             std::shared_ptr<HaltonSampler> haltonSampler_{nullptr};
             std::vector<int> landmarkPrimes_;
+            std::function<int()> banditSelectVertexFunc_;
+            std::function<void(double)> banditUpdateVertexFunc_;
         };  // class ImplicitGraph
     }       // namespace geometric
 }  // namespace ompl
