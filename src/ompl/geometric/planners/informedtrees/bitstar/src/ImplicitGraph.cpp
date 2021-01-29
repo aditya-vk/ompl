@@ -1050,7 +1050,11 @@ namespace ompl
 
         void BITstar::ImplicitGraph::setupLandmarkGraph()
         {
-            landmarkSamples_.reserve(landmarkGraphSize_);
+            // Always have start and goal in the landmark samples.
+            landmarkSamples_.reserve(landmarkGraphSize_ + 2);
+            landmarkSamples_.push_back(startVertices_.front());
+            landmarkSamples_.push_back(goalVertices_.front());
+
             int index = 0;
             std::size_t numSampled = 0u;
             while (numSampled < landmarkGraphSize_)
@@ -1106,81 +1110,85 @@ namespace ompl
         void BITstar::ImplicitGraph::greedySubgoal()
         {
             auto getMetric = [&](const VertexConstPtr &vertex) {
-                // Get the numerator: total drop in the cost.
-                const auto bestDropCostToCome =
-                    costHelpPtr_->subtractCost(vertex->getCost(), costHelpPtr_->costToComeHeuristic(vertex));
-                const auto potentialCostToGo = costHelpPtr_->subtractCost(solutionCost_, vertex->getCost());
-                const auto bestDropCostToGo =
-                    costHelpPtr_->subtractCost(potentialCostToGo, costHelpPtr_->costToGoHeuristic(vertex));
-                const auto numerator = costHelpPtr_->combineCosts(bestDropCostToCome, bestDropCostToGo);
+                // Compute how promising the vertex is.
+                double promise =
+                    costHelpPtr_->subtractCost(solutionCost_, costHelpPtr_->lowerBoundHeuristicVertex(vertex)).value();
 
-                // Get the measures of the ellipsoids.
-                const double dimension = static_cast<double>(spaceInformation_->getStateDimension());
-                const double a1 = vertex->getCost().value() / 2.0;
-                const double f1 = costHelpPtr_->costToComeHeuristic(vertex).value() / 2.0;
-                assert(a1 >= f1);
-                const double v1 = a1 * std::pow(std::sqrt(a1 * a1 - f1 * f1), dimension - 1);
+                // Compute the volume of the induced ellipsoids.
+                const double sourceMeasure = prolateHyperspheroidMeasure(
+                    spaceInformation_->getStateDimension(), costHelpPtr_->costToComeHeuristic(vertex).value(),
+                    vertex->getCost().value());
+                const double targetMeasure = prolateHyperspheroidMeasure(
+                    spaceInformation_->getStateDimension(), costHelpPtr_->costToGoHeuristic(vertex).value(),
+                    costHelpPtr_->subtractCost(solutionCost_, vertex->getCost()).value());
 
-                const double a2 = (solutionCost_.value() - vertex->getCost().value()) / 2.0;
-                const double f2 = costHelpPtr_->costToGoHeuristic(vertex).value() / 2.0;
-                assert(a2 >= f2);
-                const double v2 = a2 * std::pow(std::sqrt(a2 * a2 - f2 * f2), dimension - 1);
-
-                const double denominator = v1 + v2;
-                assert(denominator > 0);
-
-                return numerator.value() / denominator;
+                return promise / (sourceMeasure + targetMeasure);
             };
 
-            if (!hasExactSolution_)
+            if (!hasExactSolution_ || rng_.uniform01() < informedProbability_)
             {
                 bestSubgoalVertex_ = startVertices_.front();
                 return;
             }
 
-            // The vertices in the graph.
-            VertexPtrVector vertices;
-            samples_->list(vertices);
-
             // Process all the vertices after resetting the best metric.
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
-            for (const auto &vertex : vertices)
+            for (const auto &vertex : landmarkSamples_)
             {
-                if (vertex->isInTree())
+                // Ignore vertices that are outside the informed set.
+                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(vertex), solutionCost_))
                 {
-                    // Only consider vertices in the closed list => g + h < maxCost.
-                    if (costHelpPtr_->isCostWorseThanOrEquivalentTo(costHelpPtr_->currentHeuristicVertex(vertex),
-                                                                    solutionCost_))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    const double currentMetric = getMetric(vertex);
-                    if (currentMetric > metricForBestSubgoalVertex_)
-                    {
-                        bestSubgoalVertex_ = vertex;
-                        metricForBestSubgoalVertex_ = currentMetric;
-                    }
+                const double currentMetric = getMetric(vertex);
+                if (currentMetric > metricForBestSubgoalVertex_)
+                {
+                    bestSubgoalVertex_ = vertex;
+                    metricForBestSubgoalVertex_ = currentMetric;
                 }
             }
         }
 
         void BITstar::ImplicitGraph::guidedSubgoal()
         {
-            auto getMetric = [&](const VertexPtr &vertex) { return 0.0; };
+            auto getMetric = [&](const VertexPtr &vertex) {
+                // Compute how promising the vertex is.
+                double promise =
+                    costHelpPtr_->subtractCost(solutionCost_, costHelpPtr_->lowerBoundHeuristicVertex(vertex)).value();
+                double normalizedPromise = promise / solutionCost_.value();
 
-            if (!hasExactSolution_)
+                // Compute how well the ellipse has been sampled.
+                const double sourceMeasure = prolateHyperspheroidMeasure(
+                    spaceInformation_->getStateDimension(), costHelpPtr_->costToComeHeuristic(vertex).value(),
+                    vertex->getCost().value());
+                const double targetMeasure = prolateHyperspheroidMeasure(
+                    spaceInformation_->getStateDimension(), costHelpPtr_->costToGoHeuristic(vertex).value(),
+                    costHelpPtr_->subtractCost(solutionCost_, vertex->getCost()).value());
+                double normalizedCoverage =
+                    (sourceMeasure + targetMeasure) / (vertex->getBeaconCount() * getInformedMeasure(solutionCost_));
+
+                return guidedAlpha_ * normalizedPromise + (1 - guidedAlpha_) * normalizedCoverage;
+            };
+
+            if (!hasExactSolution_ || rng_.uniform01() < informedProbability_)
             {
                 bestSubgoalVertex_ = startVertices_.front();
                 return;
             }
 
             // Process all the vertices after resetting the best metric.
-            metricForBestSubgoalVertex_ = std::numeric_limits<double>::max();
+            metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
             for (const auto &vertex : landmarkSamples_)
             {
+                // Ignore vertices that are outside the informed set.
+                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(vertex), solutionCost_))
+                {
+                    continue;
+                }
+
                 const double currentMetric = getMetric(vertex);
-                if (currentMetric < metricForBestSubgoalVertex_)
+                if (currentMetric > metricForBestSubgoalVertex_)
                 {
                     bestSubgoalVertex_ = vertex;
                     metricForBestSubgoalVertex_ = currentMetric;
@@ -1205,21 +1213,21 @@ namespace ompl
         void BITstar::ImplicitGraph::findBestSubgoalVertex()
         {
             // Sample between 0 and 1. If rng() < p_informed(), default to informed.
-            if (rng_.uniform01() < informedProbability_ || metricType_ == MetricType::Informed)
+            if (metricType_ == MetricType::Informed)
             {
-                informedSubgoal();
+                return informedSubgoal();
             }
             else if (metricType_ == MetricType::Greedy)
             {
-                greedySubgoal();
+                return greedySubgoal();
             }
             else if (metricType_ == MetricType::Guided)
             {
-                guidedSubgoal();
+                return guidedSubgoal();
             }
             else if (metricType_ == MetricType::Bandit)
             {
-                banditSubgoal();
+                return banditSubgoal();
             }
             else
             {
