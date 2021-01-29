@@ -633,6 +633,20 @@ namespace ompl
             edgeQueueInLookup_.clear();
         }
 
+        void BITstar::Vertex::incrementBeaconCount()
+        {
+            ASSERT_NOT_PRUNED
+
+            beaconCount_++;
+        }
+
+        int BITstar::Vertex::getBeaconCount() const
+        {
+            ASSERT_NOT_PRUNED
+
+            return beaconCount_;
+        }
+
         BITstar::SearchQueue::EdgeQueueElemPtrVector::const_iterator BITstar::Vertex::edgeQueueInLookupConstBegin()
         {
             ASSERT_NOT_PRUNED

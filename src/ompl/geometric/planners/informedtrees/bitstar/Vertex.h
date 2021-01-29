@@ -239,6 +239,12 @@ namespace ompl
             /** \brief Clear the pointers to all of the outgoing edge queue entries. */
             void clearEdgeQueueOutLookup();
 
+            /** \brief Increments beacon count */
+            void incrementBeaconCount();
+
+            /** \brief Returns beacon count. */
+            int getBeaconCount() const;
+
         private:
             // ---
             // Internal bookkeeping.
@@ -316,6 +322,9 @@ namespace ompl
 
             /** \brief Whether this sample has ever been expanded to vertices. */
             bool hasEverBeenExpandedAsRewiring_{false};
+
+            /** \brief Beacon count. */
+            int beaconCount_{1};
 
             /** \brief A pointer to the shared memory that holds the current search id. */
             const std::shared_ptr<const unsigned int> currentSearchId_;
