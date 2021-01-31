@@ -1024,7 +1024,11 @@ namespace ompl
                             newStates.push_back(newState);
 
                             // Update the number of uniformly distributed states
-                            ++numUniformStates_;
+                            if (!bestSubgoalVertex_ || bestSubgoalVertex_->getId() == startVertices_.front()->getId())
+                            {
+                                ++numUniformStates_;
+                                newState->setSampledInformed();
+                            }
 
                             // Update the number of sample
                             ++numSamples_;
@@ -1114,13 +1118,15 @@ namespace ompl
                 double promise =
                     costHelpPtr_->subtractCost(solutionCost_, costHelpPtr_->lowerBoundHeuristicVertex(vertex)).value();
 
-                // Compute the volume of the induced ellipsoids.
-                const double sourceMeasure = prolateHyperspheroidMeasure(
-                    spaceInformation_->getStateDimension(), costHelpPtr_->costToComeHeuristic(vertex).value(),
-                    vertex->getCost().value());
-                const double targetMeasure = prolateHyperspheroidMeasure(
-                    spaceInformation_->getStateDimension(), costHelpPtr_->costToGoHeuristic(vertex).value(),
-                    costHelpPtr_->subtractCost(solutionCost_, vertex->getCost()).value());
+                // Compute how well the ellipse has been sampled.
+                double f1 = costHelpPtr_->costToComeHeuristic(vertex).value();
+                double a1 = std::max(f1, vertex->getCost().value());
+                const double sourceMeasure =
+                    prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f1, a1);
+                double f2 = costHelpPtr_->costToGoHeuristic(vertex).value();
+                double a2 = std::max(f2, costHelpPtr_->subtractCost(solutionCost_, vertex->getCost()).value());
+                const double targetMeasure =
+                    prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f2, a2);
 
                 return promise / (sourceMeasure + targetMeasure);
             };
@@ -1159,12 +1165,14 @@ namespace ompl
                 double normalizedPromise = promise / solutionCost_.value();
 
                 // Compute how well the ellipse has been sampled.
-                const double sourceMeasure = prolateHyperspheroidMeasure(
-                    spaceInformation_->getStateDimension(), costHelpPtr_->costToComeHeuristic(vertex).value(),
-                    vertex->getCost().value());
-                const double targetMeasure = prolateHyperspheroidMeasure(
-                    spaceInformation_->getStateDimension(), costHelpPtr_->costToGoHeuristic(vertex).value(),
-                    costHelpPtr_->subtractCost(solutionCost_, vertex->getCost()).value());
+                double f1 = costHelpPtr_->costToComeHeuristic(vertex).value();
+                double a1 = std::max(f1, vertex->getCost().value());
+                const double sourceMeasure =
+                    prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f1, a1);
+                double f2 = costHelpPtr_->costToGoHeuristic(vertex).value();
+                double a2 = std::max(f2, costHelpPtr_->subtractCost(solutionCost_, vertex->getCost()).value());
+                const double targetMeasure =
+                    prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f2, a2);
                 double normalizedCoverage =
                     (sourceMeasure + targetMeasure) / (vertex->getBeaconCount() * getInformedMeasure(solutionCost_));
 
@@ -1194,6 +1202,7 @@ namespace ompl
                     metricForBestSubgoalVertex_ = currentMetric;
                 }
             }
+            bestSubgoalVertex_->incrementBeaconCount();
         }
 
         void BITstar::ImplicitGraph::banditSubgoal()
@@ -1203,6 +1212,21 @@ namespace ompl
                 bestSubgoalVertex_ = startVertices_.front();
                 return;
             }
+
+            // Select a bandit using the underlying selection function.
+            std::vector<int> validLandmarkIndices;
+            for (int i = 0; i < landmarkSamples_.size(); ++i)
+            {
+                // Ignore vertices that are outside the informed set.
+                const auto &vertex = landmarkSamples_.at(i);
+                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(vertex), solutionCost_))
+                {
+                    continue;
+                }
+                validLandmarkIndices.push_back(i);
+            }
+            bestSubgoalVertex_ = landmarkSamples_.at(banditSelectVertexFunc_(validLandmarkIndices));
+            bestSubgoalVertex_->incrementBeaconCount();
         }
 
         void BITstar::ImplicitGraph::informedSubgoal()
@@ -1580,8 +1604,9 @@ namespace ompl
             samples_->list(samples);
 
             // Return the number of samples that can not be pruned.
-            return std::count_if(samples.begin(), samples.end(),
-                                 [this](const VertexPtr &sample) { return !canSampleBePruned(sample); });
+            return std::count_if(samples.begin(), samples.end(), [this](const VertexPtr &sample) {
+                return (!canSampleBePruned(sample) && sample->isInformedSample());
+            });
         }
 
         double BITstar::ImplicitGraph::calculateR(unsigned int numUniformSamples) const

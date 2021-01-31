@@ -1230,7 +1230,8 @@ namespace ompl
             graphPtr_->setInformedProbability(p);
         }
 
-        void BITstar::useBanditSelector(std::function<int()> &selectVertex, std::function<void(double)> &updateVertex)
+        void BITstar::useBanditSelector(std::function<int(std::vector<int>)> &selectVertex,
+                                        std::function<void(double)> &updateVertex)
         {
             graphPtr_->useBanditSelector(selectVertex, updateVertex);
         }

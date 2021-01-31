@@ -245,6 +245,13 @@ namespace ompl
             /** \brief Returns beacon count. */
             int getBeaconCount() const;
 
+            void setSampledInformed() {
+                informedSample_ = true;
+            }
+            bool isInformedSample() {
+                return informedSample_;
+            }
+
         private:
             // ---
             // Internal bookkeeping.
@@ -325,6 +332,7 @@ namespace ompl
 
             /** \brief Beacon count. */
             int beaconCount_{1};
+            bool informedSample_{false};
 
             /** \brief A pointer to the shared memory that holds the current search id. */
             const std::shared_ptr<const unsigned int> currentSearchId_;

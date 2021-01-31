@@ -316,7 +316,8 @@ namespace ompl
                 landmarkPrimes_ = primes;
             }
             void setupLandmarkGraph();
-            void useBanditSelector(std::function<int()> &selectVertex, std::function<void(double)> &updateVertex)
+            void useBanditSelector(std::function<int(std::vector<int>)> &selectVertex,
+                                   std::function<void(double)> &updateVertex)
             {
                 banditSelectVertexFunc_ = selectVertex;
                 banditUpdateVertexFunc_ = updateVertex;
@@ -489,7 +490,7 @@ namespace ompl
             std::size_t newSamplesIteration_{0u};
 
             /** \brief The vertex considered to the best subgoal. */
-            VertexConstPtr bestSubgoalVertex_{nullptr};
+            VertexPtr bestSubgoalVertex_{nullptr};
 
             /** \brief The metric corresponding to the best vertex. */
             double metricForBestSubgoalVertex_;
@@ -553,7 +554,7 @@ namespace ompl
             std::vector<std::vector<double>> samplesAndCost_;
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
-            MetricType metricType_;
+            MetricType metricType_{MetricType::Informed};
 
             /** \brief Alpha to use for guided metric type. */
             double guidedAlpha_{1.0};
@@ -566,7 +567,7 @@ namespace ompl
             VertexPtrVector landmarkSamples_;
             std::shared_ptr<HaltonSampler> haltonSampler_{nullptr};
             std::vector<int> landmarkPrimes_;
-            std::function<int()> banditSelectVertexFunc_;
+            std::function<int(std::vector<int>)> banditSelectVertexFunc_;
             std::function<void(double)> banditUpdateVertexFunc_;
         };  // class ImplicitGraph
     }       // namespace geometric

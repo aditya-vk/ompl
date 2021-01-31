@@ -328,7 +328,8 @@ namespace ompl
             void setInformedProbability(double probability);
 
             /** \brief Use bandit functions. */
-            void useBanditSelector(std::function<int()> &selectVertex, std::function<void(double)> &updateVertex);
+            void useBanditSelector(std::function<int(std::vector<int>)> &selectVertex,
+                                   std::function<void(double)> &updateVertex);
 
         protected:
             // ---
