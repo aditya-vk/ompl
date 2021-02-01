@@ -277,7 +277,8 @@ namespace ompl
             //////////////////
             ////////////////////////////////
             ////////////////// DEBUG
-            void generateLog() const;
+            void generateLog(const bool final = false) const;
+            void logLandmarks() const;
             int hasSolutionIteration_{0};
             std::size_t getGraphSize() const
             {
@@ -322,6 +323,10 @@ namespace ompl
                 banditSelectVertexFunc_ = selectVertex;
                 banditUpdateVertexFunc_ = updateVertex;
             }
+            VertexPtrVector getLandmarkSamples() const
+            {
+                return landmarkSamples_;
+            };
 
         private:
             // ---

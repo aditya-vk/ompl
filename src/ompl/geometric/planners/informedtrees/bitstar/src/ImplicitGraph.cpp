@@ -1225,6 +1225,7 @@ namespace ompl
                 }
                 validLandmarkIndices.push_back(i);
             }
+            assert(!validLandmarkIndices.empty());
             bestSubgoalVertex_ = landmarkSamples_.at(banditSelectVertexFunc_(validLandmarkIndices));
             bestSubgoalVertex_->incrementBeaconCount();
         }
@@ -1681,7 +1682,7 @@ namespace ompl
             }
         }
 
-        void BITstar::ImplicitGraph::generateLog() const
+        void BITstar::ImplicitGraph::generateLog(const bool final) const
         {
             // Save start, focus, goal, g(v), c(xi*).
             std::vector<double> position;
@@ -1706,14 +1707,17 @@ namespace ompl
                 }
                 logfile << std::endl;
 
-                // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal.
-                spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
-                for (const auto &p : position)
+                // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal
+                if (!final)
                 {
-                    logfile << p << " ";
+                    spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
+                    for (const auto &p : position)
+                    {
+                        logfile << p << " ";
+                    }
+                    logfile << std::endl;
+                    logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
                 }
-                logfile << std::endl;
-                logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
                 logfile << solutionCost_ << " 0" << std::endl;
 
                 logfile.close();
@@ -1788,6 +1792,27 @@ namespace ompl
             }
             logfile.close();
         }
+
+        void BITstar::ImplicitGraph::logLandmarks() const
+        {
+            // Save the landmark positions.
+            std::vector<double> position;
+            std::ofstream logfile;
+            std::string landmarksDataFile = "landmarks.txt";
+            logfile.open(landmarksDataFile, std::ios_base::app);
+
+            for (const auto &sample : landmarkSamples_)
+            {
+                spaceInformation_->getStateSpace()->copyToReals(position, sample->state());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                logfile << std::endl;
+            }
+            logfile.close();
+        }
+
         /////////////////////////////////////////////////////////////////////////////////////////////
 
         /////////////////////////////////////////////////////////////////////////////////////////////

@@ -390,7 +390,8 @@ namespace ompl
                 // Uncomment this when you want to log the progress of an algorithm.
                 if (enableLoggingGraphEveryIteration_)
                 {
-                    graphPtr_->generateLog();
+                    graphPtr_->generateLog(true);
+                    graphPtr_->logLandmarks();
                 }
             }
             // No else, no solution to publish
@@ -1234,6 +1235,19 @@ namespace ompl
                                         std::function<void(double)> &updateVertex)
         {
             graphPtr_->useBanditSelector(selectVertex, updateVertex);
+        }
+
+        std::vector<std::vector<double>> BITstar::getLandmarkSamples() const
+        {
+            std::vector<std::vector<double>> landmarks;
+            VertexPtrVector landmarkSamples = graphPtr_->getLandmarkSamples();
+            std::vector<double> position;
+            for (const auto &sample : landmarkSamples)
+            {
+                Planner::si_->getStateSpace()->copyToReals(position, sample->state());
+                landmarks.push_back(position);
+            }
+            return landmarks;
         }
 
         void BITstar::enableLoggingGraphEveryIteration(bool enable)

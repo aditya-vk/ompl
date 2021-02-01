@@ -331,6 +331,9 @@ namespace ompl
             void useBanditSelector(std::function<int(std::vector<int>)> &selectVertex,
                                    std::function<void(double)> &updateVertex);
 
+            /** \brief Returns the landmark samples **/
+            std::vector<std::vector<double>> getLandmarkSamples() const;
+
         protected:
             // ---
             // The settings that turn BIT* into ABIT*.
