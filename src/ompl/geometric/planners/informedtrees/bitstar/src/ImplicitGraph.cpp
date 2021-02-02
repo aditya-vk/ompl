@@ -1213,6 +1213,9 @@ namespace ompl
                 return;
             }
 
+            // Update the vertex.
+            banditUpdateVertexFunc_(solutionCost_.value());
+
             // Select a bandit using the underlying selection function.
             std::vector<int> validLandmarkIndices;
             for (int i = 0; i < landmarkSamples_.size(); ++i)
