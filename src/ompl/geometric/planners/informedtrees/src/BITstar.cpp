@@ -1232,7 +1232,7 @@ namespace ompl
         }
 
         void BITstar::useBanditSelector(std::function<int(std::vector<int>)> &selectVertex,
-                                        std::function<void(double)> &updateVertex)
+                                        std::function<void(double, double)> &updateVertex)
         {
             graphPtr_->useBanditSelector(selectVertex, updateVertex);
         }

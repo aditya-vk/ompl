@@ -329,7 +329,7 @@ namespace ompl
 
             /** \brief Use bandit functions. */
             void useBanditSelector(std::function<int(std::vector<int>)> &selectVertex,
-                                   std::function<void(double)> &updateVertex);
+                                   std::function<void(double, double)> &updateVertex);
 
             /** \brief Returns the landmark samples **/
             std::vector<std::vector<double>> getLandmarkSamples() const;

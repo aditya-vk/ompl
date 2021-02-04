@@ -318,7 +318,7 @@ namespace ompl
             }
             void setupLandmarkGraph();
             void useBanditSelector(std::function<int(std::vector<int>)> &selectVertex,
-                                   std::function<void(double)> &updateVertex)
+                                   std::function<void(double, double)> &updateVertex)
             {
                 banditSelectVertexFunc_ = selectVertex;
                 banditUpdateVertexFunc_ = updateVertex;
@@ -573,7 +573,25 @@ namespace ompl
             std::shared_ptr<HaltonSampler> haltonSampler_{nullptr};
             std::vector<int> landmarkPrimes_;
             std::function<int(std::vector<int>)> banditSelectVertexFunc_;
-            std::function<void(double)> banditUpdateVertexFunc_;
+            std::function<void(double, double)> banditUpdateVertexFunc_;
+
+            // Keeps track of the dispersion of each beacon's local informed set.
+            // Initialized by the std::max(dist(start, b), dist(b, goal))
+            std::vector<double> beaconDispersions_;
+
+            // Keeps track of the effective number of samples in the volume.
+            std::vector<int> coverageSamples_;
+
+            // Keeps track of the previous beacon measure.
+            std::vector<double> beaconSampledVolumes_;
+
+            // Keeps track of the previous solution cost.
+            ompl::base::Cost previousSolutionCost_{std::numeric_limits<double>::infinity()};
+
+            // Keep track of the index of the best subgoal index.
+            int bestSubgoalIndex_{-1};
+            double bestSubgoalSampledVolume_;
+
         };  // class ImplicitGraph
     }       // namespace geometric
 }  // namespace ompl

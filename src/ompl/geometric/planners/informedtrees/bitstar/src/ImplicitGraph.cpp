@@ -1036,12 +1036,6 @@ namespace ompl
                         // No else
                     }
                 }
-                // Log the current graph and search tree.
-                if (enableLoggingGraphEveryIteration_)
-                {
-                    generateLog();
-                    newSamplesIteration_++;
-                }
 
                 // Add the new state as a sample.
                 this->addToSamples(newStates);
@@ -1058,6 +1052,10 @@ namespace ompl
             landmarkSamples_.reserve(landmarkGraphSize_ + 2);
             landmarkSamples_.push_back(startVertices_.front());
             landmarkSamples_.push_back(goalVertices_.front());
+            const double startGoalDistance =
+                spaceInformation_->distance(startVertices_.front()->state(), goalVertices_.front()->state());
+            beaconDispersions_.push_back(startGoalDistance);
+            beaconDispersions_.push_back(startGoalDistance);
 
             int index = 0;
             std::size_t numSampled = 0u;
@@ -1084,11 +1082,22 @@ namespace ompl
                     // Update the number of samples.
                     ++numSamples_;
                     numSampled++;
+
+                    // Update the beacon dispersion.
+                    // Set the beacon dispersion.
+                    beaconDispersions_.push_back(
+                        std::max(spaceInformation_->distance(startVertices_.front()->state(), newState->state()),
+                                 spaceInformation_->distance(newState->state(), goalVertices_.front()->state())));
                 }
             }
 
             // Add the new state as a sample to the graph.
             this->addToSamples(landmarkSamples_);
+
+            // Initialize the coverage samples with zeros.
+            coverageSamples_ = std::vector<int>(landmarkSamples_.size(), 0);
+            beaconSampledVolumes_ =
+                std::vector<double>(landmarkSamples_.size(), std::numeric_limits<double>::infinity());
         }
 
         void BITstar::ImplicitGraph::updateVertexClosestToGoal()
@@ -1214,7 +1223,13 @@ namespace ompl
             }
 
             // Update the vertex.
-            banditUpdateVertexFunc_(solutionCost_.value());
+            double increment = 0;
+            if (bestSubgoalIndex_ != -1)
+            {
+                increment = beaconDispersions_.at(bestSubgoalIndex_) /
+                            std::accumulate(beaconDispersions_.begin(), beaconDispersions_.end(), 0.0);
+            }
+            banditUpdateVertexFunc_(solutionCost_.value(), increment);
 
             // Select a bandit using the underlying selection function.
             std::vector<int> validLandmarkIndices;
@@ -1229,8 +1244,25 @@ namespace ompl
                 validLandmarkIndices.push_back(i);
             }
             assert(!validLandmarkIndices.empty());
-            bestSubgoalVertex_ = landmarkSamples_.at(banditSelectVertexFunc_(validLandmarkIndices));
+            bestSubgoalIndex_ = banditSelectVertexFunc_(validLandmarkIndices);
+            bestSubgoalVertex_ = landmarkSamples_.at(bestSubgoalIndex_);
             bestSubgoalVertex_->incrementBeaconCount();
+
+            double f1 = costHelpPtr_->costToComeHeuristic(bestSubgoalVertex_).value();
+            double a1 = std::max(f1, bestSubgoalVertex_->getCost().value());
+            const double sourceMeasure = prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f1, a1);
+
+            double f2 = costHelpPtr_->costToGoHeuristic(bestSubgoalVertex_).value();
+            double a2 = std::max(f2, costHelpPtr_->subtractCost(solutionCost_, bestSubgoalVertex_->getCost()).value());
+            const double targetMeasure = prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f2, a2);
+
+            const double sampledVolume = sourceMeasure + targetMeasure;
+
+            coverageSamples_.at(bestSubgoalIndex_) =
+                sampledVolume / beaconSampledVolumes_.at(bestSubgoalIndex_) * coverageSamples_.at(bestSubgoalIndex_) +
+                numNewSamplesInCurrentBatch_;
+            beaconSampledVolumes_.at(bestSubgoalIndex_) = sampledVolume;
+            beaconDispersions_.at(bestSubgoalIndex_) = sampledVolume / coverageSamples_.at(bestSubgoalIndex_);
         }
 
         void BITstar::ImplicitGraph::informedSubgoal()
@@ -1732,15 +1764,42 @@ namespace ompl
 
             VertexPtrVector samples;
             samples_->list(samples);
-
-            for (const auto &freeSample : samples)
+            for (const auto &sample : samples)
             {
-                spaceInformation_->getStateSpace()->copyToReals(position, freeSample->state());
+                spaceInformation_->getStateSpace()->copyToReals(position, sample->state());
                 for (const auto &p : position)
                 {
                     logfile << p << " ";
                 }
-                logfile << std::endl;
+                if (sample->isInTree())
+                {
+                    logfile << sample->getCost().value() << std::endl;
+                }
+                else
+                {
+                    logfile << "-1" << std::endl;
+                }
+            }
+            logfile.close();
+
+            // Save the landmark attributes.
+            std::string landmarksDataFile = "landmarks_" + std::to_string(newSamplesIteration_) + ".txt";
+            logfile.open(landmarksDataFile, std::ios_base::app);
+            for (const auto &sample : landmarkSamples_)
+            {
+                spaceInformation_->getStateSpace()->copyToReals(position, sample->state());
+                for (const auto &p : position)
+                {
+                    logfile << p << " ";
+                }
+                if (sample->isInTree())
+                {
+                    logfile << sample->getCost().value() << std::endl;
+                }
+                else
+                {
+                    logfile << "-1" << std::endl;
+                }
             }
             logfile.close();
 
