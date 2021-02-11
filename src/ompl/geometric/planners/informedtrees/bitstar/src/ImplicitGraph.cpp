@@ -1004,7 +1004,7 @@ namespace ompl
 
                     // Sample in the interval [costSampled_, costReqd):
                     bool sampled;
-                    if (hasExactSolution_)
+                    if (hasExactSolution_ && bestSubgoalVertex_)
                     {
                         // Find the local focus and sample from corresponding ellipsoids.
                         sampled = localSampler_->sampleUniform(
@@ -1024,7 +1024,8 @@ namespace ompl
                             newStates.push_back(newState);
 
                             // Update the number of uniformly distributed states
-                            if (!bestSubgoalVertex_ || bestSubgoalVertex_->getId() == startVertices_.front()->getId())
+                            if (!bestSubgoalVertex_ || bestSubgoalVertex_->getId() == startVertices_.front()->getId() ||
+                                bestSubgoalVertex_->getId() == goalVertices_.front()->getId())
                             {
                                 ++numUniformStates_;
                                 newState->setSampledInformed();
@@ -1218,7 +1219,7 @@ namespace ompl
         {
             if (!hasExactSolution_)
             {
-                bestSubgoalVertex_ = startVertices_.front();
+                bestSubgoalVertex_ = nullptr;
                 return;
             }
 
@@ -1267,7 +1268,7 @@ namespace ompl
 
         void BITstar::ImplicitGraph::informedSubgoal()
         {
-            bestSubgoalVertex_ = startVertices_.front();
+            bestSubgoalVertex_ = nullptr;
         }
 
         void BITstar::ImplicitGraph::findBestSubgoalVertex()
@@ -1745,13 +1746,14 @@ namespace ompl
                 // TODO(avk): If the bestSubgoalVertex_ is null, then just log the start/goal
                 if (!final)
                 {
-                    spaceInformation_->getStateSpace()->copyToReals(position, bestSubgoalVertex_->state());
+                    VertexPtr focusVertex = bestSubgoalVertex_ ? bestSubgoalVertex_ : startVertices_.front();
+                    spaceInformation_->getStateSpace()->copyToReals(position, focusVertex->state());
                     for (const auto &p : position)
                     {
                         logfile << p << " ";
                     }
                     logfile << std::endl;
-                    logfile << bestSubgoalVertex_->getCost() << " 0" << std::endl;
+                    logfile << focusVertex->getCost() << " 0" << std::endl;
                 }
                 logfile << solutionCost_ << " 0" << std::endl;
 
