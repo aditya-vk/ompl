@@ -1,4 +1,5 @@
 #include "ompl/geometric/planners/informedtrees/bitstar/LandmarkUtils.h"
+#include "ompl/base/spaces/RealVectorStateSpace.h"
 
 namespace ompl
 {
@@ -27,8 +28,12 @@ namespace ompl
                 }
                 position.push_back(result);
             }
-            // TODO(avk): Scale the halton sample.
-            // spaceInformation_->getStateSpace()->getLowerLimits();
+            auto bounds = spaceInformation_->getStateSpace()->as<ompl::base::RealVectorStateSpace>()->getBounds();
+            std::vector<double> difference = bounds.getDifference();
+            for (int i = 0; i < difference.size(); ++i)
+            {
+                position[i] = bounds.low[i] + difference[i] * position[i];
+            }
 
             // Now scale the halton sample appropriately.
             spaceInformation_->getStateSpace()->copyFromReals(state, position);

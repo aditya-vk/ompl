@@ -1168,25 +1168,16 @@ namespace ompl
 
         void BITstar::ImplicitGraph::guidedSubgoal()
         {
-            auto getMetric = [&](const VertexPtr &vertex) {
-                // Compute how promising the vertex is.
+            auto getMetric = [&](int index) {
+                const auto &vertex = landmarkSamples_.at(index);
+
                 double promise =
                     costHelpPtr_->subtractCost(solutionCost_, costHelpPtr_->lowerBoundHeuristicVertex(vertex)).value();
                 double normalizedPromise = promise / solutionCost_.value();
-
-                // Compute how well the ellipse has been sampled.
-                double f1 = costHelpPtr_->costToComeHeuristic(vertex).value();
-                double a1 = std::max(f1, vertex->getCost().value());
-                const double sourceMeasure =
-                    prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f1, a1);
-                double f2 = costHelpPtr_->costToGoHeuristic(vertex).value();
-                double a2 = std::max(f2, costHelpPtr_->subtractCost(solutionCost_, vertex->getCost()).value());
-                const double targetMeasure =
-                    prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f2, a2);
-                double normalizedCoverage =
-                    (sourceMeasure + targetMeasure) / (vertex->getBeaconCount() * getInformedMeasure(solutionCost_));
-
-                return guidedAlpha_ * normalizedPromise + (1 - guidedAlpha_) * normalizedCoverage;
+                double normalizedBeaconDispersion =
+                    beaconDispersions_.at(index) /
+                    std::accumulate(beaconDispersions_.begin(), beaconDispersions_.end(), 0.0);
+                return guidedAlpha_ * normalizedPromise + (1 - guidedAlpha_) * normalizedBeaconDispersion;
             };
 
             if (!hasExactSolution_ || rng_.uniform01() < informedProbability_)
@@ -1197,22 +1188,28 @@ namespace ompl
 
             // Process all the vertices after resetting the best metric.
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
-            for (const auto &vertex : landmarkSamples_)
+            for (int i = 0; i < landmarkSamples_.size(); ++i)
             {
                 // Ignore vertices that are outside the informed set.
-                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(vertex), solutionCost_))
+                const auto &landmark = landmarkSamples_.at(i);
+                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(landmark), solutionCost_))
                 {
                     continue;
                 }
 
-                const double currentMetric = getMetric(vertex);
+                const double currentMetric = getMetric(i);
                 if (currentMetric > metricForBestSubgoalVertex_)
                 {
-                    bestSubgoalVertex_ = vertex;
+                    bestSubgoalIndex_ = i;
+                    bestSubgoalVertex_ = landmark;
                     metricForBestSubgoalVertex_ = currentMetric;
                 }
             }
+            // Increment the selection increment.
             bestSubgoalVertex_->incrementBeaconCount();
+
+            // Update the chosen vertex dispersion.
+            updateBeaconDispersion();
         }
 
         void BITstar::ImplicitGraph::banditSubgoal()
@@ -1246,9 +1243,19 @@ namespace ompl
             }
             assert(!validLandmarkIndices.empty());
             bestSubgoalIndex_ = banditSelectVertexFunc_(validLandmarkIndices);
+            std::cout << "Chose " << bestSubgoalIndex_ << std::endl;
             bestSubgoalVertex_ = landmarkSamples_.at(bestSubgoalIndex_);
             bestSubgoalVertex_->incrementBeaconCount();
+            updateBeaconDispersion();
+        }
 
+        void BITstar::ImplicitGraph::informedSubgoal()
+        {
+            bestSubgoalVertex_ = nullptr;
+        }
+
+        void BITstar::ImplicitGraph::updateBeaconDispersion()
+        {
             double f1 = costHelpPtr_->costToComeHeuristic(bestSubgoalVertex_).value();
             double a1 = std::max(f1, bestSubgoalVertex_->getCost().value());
             const double sourceMeasure = prolateHyperspheroidMeasure(spaceInformation_->getStateDimension(), f1, a1);
@@ -1264,11 +1271,6 @@ namespace ompl
                 numNewSamplesInCurrentBatch_;
             beaconSampledVolumes_.at(bestSubgoalIndex_) = sampledVolume;
             beaconDispersions_.at(bestSubgoalIndex_) = sampledVolume / coverageSamples_.at(bestSubgoalIndex_);
-        }
-
-        void BITstar::ImplicitGraph::informedSubgoal()
-        {
-            bestSubgoalVertex_ = nullptr;
         }
 
         void BITstar::ImplicitGraph::findBestSubgoalVertex()
@@ -1624,6 +1626,7 @@ namespace ompl
             }
 
             // Now update the appropriate term
+            // Update the uniform samples to not include the landmark samples
             if (useKNearest_)
             {
                 k_ = this->calculateK(numUniformStates);

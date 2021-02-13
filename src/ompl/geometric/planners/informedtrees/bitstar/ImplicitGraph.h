@@ -348,6 +348,7 @@ namespace ompl
             void guidedSubgoal();
             void banditSubgoal();
             void informedSubgoal();
+            void updateBeaconDispersion();
 
             // ---
             // High-level primitives pruning the graph.
