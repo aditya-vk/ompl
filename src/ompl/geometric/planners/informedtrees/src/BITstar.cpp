@@ -228,37 +228,6 @@ namespace ompl
 
                 // Get the measure of the problem
                 prunedMeasure_ = Planner::si_->getSpaceMeasure();
-
-                // If the planner is default named, we change it:
-                if (!graphPtr_->getUseKNearest() && Planner::getName() == "kBITstar")
-                {
-                    // It's current the default k-nearest BIT* name, and we're toggling, so set to the default r-disc
-                    OMPL_WARN("BIT*: An r-disc version of BIT* can not be named 'kBITstar', as this name is reserved "
-                              "for the k-nearest version. Changing the name to 'BITstar'.");
-                    Planner::setName("BITstar");
-                }
-                else if (graphPtr_->getUseKNearest() && Planner::getName() == "BITstar")
-                {
-                    // It's current the default r-disc BIT* name, and we're toggling, so set to the default k-nearest
-                    OMPL_WARN("BIT*: A k-nearest version of BIT* can not be named 'BITstar', as this name is reserved "
-                              "for the r-disc version. Changing the name to 'kBITstar'.");
-                    Planner::setName("kBITstar");
-                }
-                else if (!graphPtr_->getUseKNearest() && Planner::getName() == "kABITstar")
-                {
-                    // It's current the default k-nearest ABIT* name, and we're toggling, so set to the default r-disc
-                    OMPL_WARN("ABIT*: An r-disc version of ABIT* can not be named 'kABITstar', as this name is "
-                              "reserved for the k-nearest version. Changing the name to 'ABITstar'.");
-                    Planner::setName("ABITstar");
-                }
-                else if (graphPtr_->getUseKNearest() && Planner::getName() == "ABITstar")
-                {
-                    // It's current the default r-disc ABIT* name, and we're toggling, so set to the default k-nearest
-                    OMPL_WARN("ABIT*: A k-nearest version of ABIT* can not be named 'ABITstar', as this name is "
-                              "reserved for the r-disc version. Changing the name to 'kABITstar'.");
-                    Planner::setName("kABITstar");
-                }
-                // It's not default named, don't change it
             }
             else
             {
@@ -407,24 +376,8 @@ namespace ompl
 
         void BITstar::getPlannerData(ompl::base::PlannerData &data) const
         {
-            // Get the base planner class data:
-            Planner::getPlannerData(data);
-
             // Add the samples (the graph)
             graphPtr_->getGraphAsPlannerData(data);
-
-            // Did we find a solution?
-            if (hasExactSolution_)
-            {
-                // Exact solution
-                data.markGoalState(curGoalVertex_->state());
-            }
-            else if (!hasExactSolution_ && graphPtr_->getTrackApproximateSolutions())
-            {
-                // Approximate solution
-                data.markGoalState(graphPtr_->closestVertexToGoal()->state());
-            }
-            // No else, no solution
         }
 
         std::pair<ompl::base::State const *, ompl::base::State const *> BITstar::getNextEdgeInQueue()
@@ -805,6 +758,7 @@ namespace ompl
 
         bool BITstar::checkEdge(const VertexConstPtrPair &edge)
         {
+            return true;
 #ifdef BITSTAR_DEBUG
             if (edge.first->isBlacklistedAsChild(edge.second))
             {

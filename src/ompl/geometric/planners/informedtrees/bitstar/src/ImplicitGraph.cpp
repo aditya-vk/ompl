@@ -340,6 +340,7 @@ namespace ompl
                 liveStates([](const auto &lhs, const auto &rhs) { return lhs->getId() < rhs->getId(); });
 
             // Add samples
+            std::cout << static_cast<bool>(samples_) << std::endl;
             if (static_cast<bool>(samples_))
             {
                 // Get the samples as a vector.
@@ -347,27 +348,25 @@ namespace ompl
                 samples_->list(samples);
 
                 // Iterate through the samples.
+                VertexPtrVector nearestSamples;
                 for (const auto &sample : samples)
                 {
                     // Make sure the sample is not destructed before BIT* is.
                     liveStates.insert(sample);
 
                     // Add sample.
-                    if (!sample->isRoot())
-                    {
-                        data.addVertex(ompl::base::PlannerDataVertex(sample->state(), sample->getId()));
+                    data.addVertex(ompl::base::PlannerDataVertex(sample->state(), sample->getId()));
 
-                        // Add incoming edge.
-                        if (sample->hasParent())
+                    // Add incoming edge.
+                    nearestSamples.clear();
+                    samples_->nearestR(sample, 0.15, nearestSamples);
+                    for (const auto &neighbor : nearestSamples)
+                    {
+                        if (spaceInformation_->checkMotion(neighbor->state(), sample->state()))
                         {
-                            data.addEdge(ompl::base::PlannerDataVertex(sample->getParent()->state(),
-                                                                       sample->getParent()->getId()),
+                            data.addEdge(ompl::base::PlannerDataVertex(neighbor->state(), neighbor->getId()),
                                          ompl::base::PlannerDataVertex(sample->state(), sample->getId()));
                         }
-                    }
-                    else
-                    {
-                        data.addStartVertex(ompl::base::PlannerDataVertex(sample->state(), sample->getId()));
                     }
                 }
             }
@@ -1049,15 +1048,6 @@ namespace ompl
 
         void BITstar::ImplicitGraph::setupLandmarkGraph()
         {
-            // Always have start and goal in the landmark samples.
-            landmarkSamples_.reserve(landmarkGraphSize_ + 2);
-            landmarkSamples_.push_back(startVertices_.front());
-            landmarkSamples_.push_back(goalVertices_.front());
-            const double startGoalDistance =
-                spaceInformation_->distance(startVertices_.front()->state(), goalVertices_.front()->state());
-            beaconDispersions_.push_back(startGoalDistance);
-            beaconDispersions_.push_back(startGoalDistance);
-
             int index = 0;
             std::size_t numSampled = 0u;
             while (numSampled < landmarkGraphSize_)
@@ -1067,7 +1057,9 @@ namespace ompl
 
                 // Generate a halton sample.
                 // TODO(avk): Write a Halton Sampler class.
-                haltonSampler_->sample(index, newState->state());
+                // haltonSampler_->sample(index, newState->state());
+                sampler_->sampleUniform(newState->state(), ompl::base::Cost(0.0),
+                                        ompl::base::Cost(std::numeric_limits<double>::max()));
                 index++;
 
                 // If the state is collision free, add it to the set of free states.
@@ -1075,8 +1067,6 @@ namespace ompl
                 ++numStateCollisionChecks_;
                 if (spaceInformation_->isValid(newState->state()))
                 {
-                    landmarkSamples_.push_back(newState);
-
                     // Update the number of uniformly distributed states
                     ++numUniformStates_;
 
@@ -1084,21 +1074,9 @@ namespace ompl
                     ++numSamples_;
                     numSampled++;
 
-                    // Update the beacon dispersion.
-                    // Set the beacon dispersion.
-                    beaconDispersions_.push_back(
-                        std::max(spaceInformation_->distance(startVertices_.front()->state(), newState->state()),
-                                 spaceInformation_->distance(newState->state(), goalVertices_.front()->state())));
+                    this->addToSamples(newState);
                 }
             }
-
-            // Add the new state as a sample to the graph.
-            this->addToSamples(landmarkSamples_);
-
-            // Initialize the coverage samples with zeros.
-            coverageSamples_ = std::vector<int>(landmarkSamples_.size(), 0);
-            beaconSampledVolumes_ =
-                std::vector<double>(landmarkSamples_.size(), std::numeric_limits<double>::infinity());
         }
 
         void BITstar::ImplicitGraph::updateVertexClosestToGoal()
