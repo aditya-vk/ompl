@@ -38,10 +38,23 @@ namespace ompl
             {
                 return true;
             }
-            // TODO(avk): Placeholder event for constantDepth(1)
-            if (!vertex->hasEvaluatedChild(vertex->getParent()) && !vertex->getParent()->hasEvaluatedChild(vertex))
+            // Compute the number of lazy edges in the subpath from start to \c vertex.
+
+            // Iterate backwards from the current vertex.
+            VertexPtr curVertex = vertex;
+            int lazyDepth = 0;
+            for (/*Already allocated & initialized*/; !curVertex->isRoot(); curVertex = curVertex->getParent())
             {
-                return true;
+                // Check if this edge is evaluated. It is enough to check for collision-free edges.
+                if (!curVertex->hasWhitelistedChild(curVertex->getParent()) &&
+                    !curVertex->getParent()->hasWhitelistedChild(curVertex))
+                {
+                    lazyDepth++;
+                    if (lazyDepth == depth_)
+                    {
+                        return true;
+                    }
+                }
             }
             return false;
         }

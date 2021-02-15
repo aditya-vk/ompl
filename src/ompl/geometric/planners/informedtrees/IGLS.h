@@ -102,7 +102,7 @@ namespace ompl
 
             /** \brief Get results. */
             void getPlannerData(base::PlannerData &data) const override;
-            std::vector<std::vector<double>> getSamplesAndCost() const;
+            std::vector<std::vector<double>> getPlannerMetrics() const;
             std::vector<std::vector<double>> getShortestPaths() const;
 
             // ---
@@ -349,6 +349,9 @@ namespace ompl
              * SpaceInformation::checkMotion(...)) as a planner-progress property. (numEdgeCollisionChecks_) */
             std::string edgeCollisionCheckProgressProperty() const;
 
+            /** \brief Retrieve the number of vertices rewired */
+            std::string vertexRewireProgressProperty() const;
+
             /** \brief Retrieve the number of nearest neighbour calls (i.e., NearestNeighbors<T>::nearestK(...) or
              * NearestNeighbors<T>::nearestR(...)) as a planner-progress property. (From graphPtr_) */
             std::string nearestNeighbourProgressProperty() const;
@@ -423,6 +426,9 @@ namespace ompl
 
             /** \brief The number of edge collision checks. Accessible via edgeCollisionCheckProgressProperty. */
             unsigned int numEdgeCollisionChecks_{0u};
+
+            /** \brief The number of vertex rewires. Accessible via vertexRewiresProgressProperty. */
+            unsigned int numVerticesRewired_{0u};
             void generateSamplesCostLog() const;
             void printGraph() const;
             void printCompleteGraph() const;
@@ -444,7 +450,7 @@ namespace ompl
             bool stopOnSolutionChange_{false};
 
             // Logger settings:
-            std::vector<std::vector<double>> samplesAndCost_;
+            std::vector<std::vector<double>> plannerMetrics_;
             std::vector<std::vector<double>> shortestPaths_;
         };  // class BITstar
     }       // namespace geometric

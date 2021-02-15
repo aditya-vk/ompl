@@ -293,11 +293,6 @@ namespace ompl
             // No else, no solution
         }
 
-        std::vector<std::vector<double>> IGLS::getSamplesAndCost() const
-        {
-            return samplesAndCost_;
-        }
-
         std::vector<std::vector<double>> IGLS::getShortestPaths() const
         {
             return shortestPaths_;
@@ -626,6 +621,7 @@ namespace ompl
                 repairQueuePtr_->enqueueVertex(vertex);
             }
 
+            numVerticesRewired_ += repairQueuePtr_->numVertices();
             while (!repairQueuePtr_->isEmpty())
             {
                 // Get the most promising vertex.
@@ -976,10 +972,8 @@ namespace ompl
 
             // Save the cost and the total number of samples.
             std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
-            std::size_t verticesRewired = repairQueuePtr_->numVerticesPopped();
-            auto current = std::vector<double>{(double)graphSize, bestCost_.value(), (double)numEdgeCollisionChecks_,
-                                               (double)verticesRewired};
-            samplesAndCost_.push_back(current);
+            plannerMetrics_.push_back(std::vector<double>{
+                (double)graphSize, bestCost_.value(), (double)numEdgeCollisionChecks_, (double)numVerticesRewired_});
 
             // Save the shortest path.
             std::vector<double> currentPosition, currentShortestPath;
@@ -1038,8 +1032,8 @@ namespace ompl
                         "vertices, collision checking %u edges and perform %u rewirings. The graph "
                         "currently has %u vertices and a connection radius of %.4f.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
-                        graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
-                        graphPtr_->numVertices(), graphPtr_->getConnectivityR());
+                        graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_,
+                        numVerticesRewired_, graphPtr_->numVertices(), graphPtr_->getConnectivityR());
         }
 
         void IGLS::endSuccessMessage() const
@@ -1048,8 +1042,8 @@ namespace ompl
                         "vertices, collision checking %u edges and perform %u rewirings. The final graph "
                         "has %u vertices.",
                         Planner::getName().c_str(), numIterations_, bestCost_.value(), bestLength_,
-                        graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
-                        graphPtr_->numVertices());
+                        graphPtr_->numSamples(), queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_,
+                        numVerticesRewired_, graphPtr_->numVertices());
         }
 
         void IGLS::endFailureMessage() const
@@ -1058,7 +1052,7 @@ namespace ompl
                         "vertices, collision checking %u edges and perform %u rewirings. The final graph "
                         "has %u vertices.",
                         Planner::getName().c_str(), numIterations_, graphPtr_->numSamples(),
-                        queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numRewirings_,
+                        queuePtr_->numVerticesPopped(), numEdgeCollisionChecks_, numVerticesRewired_,
                         graphPtr_->numVertices());
         }
 
@@ -1354,6 +1348,11 @@ namespace ompl
             return std::to_string(numEdgeCollisionChecks_);
         }
 
+        std::string IGLS::vertexRewireProgressProperty() const
+        {
+            return std::to_string(numVerticesRewired_);
+        }
+
         std::string IGLS::nearestNeighbourProgressProperty() const
         {
             return std::to_string(graphPtr_->numNearestLookups());
@@ -1411,6 +1410,11 @@ namespace ompl
                 }
             }
             logfile.close();
+        }
+
+        std::vector<std::vector<double>> IGLS::getPlannerMetrics() const
+        {
+            return plannerMetrics_;
         }
     }  // namespace geometric
 }  // namespace ompl
