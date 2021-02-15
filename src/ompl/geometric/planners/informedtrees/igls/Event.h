@@ -52,7 +52,7 @@ namespace ompl
         public:
             explicit SubpathExistenceEvent(
                 const double threshold,
-                const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
+                const IGLS::ExistenceGraph& existenceGraph);
 
             /** \brief Returns true if the vertex triggers the event.
              * Triggers when the lazy subpath to vertex has existence probability less than \c threshold. */
@@ -63,7 +63,7 @@ namespace ompl
             const double threshold_;
 
             /** \brief Returns probability of existence of edge between two vertices. */
-            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction_;
+            const IGLS::ExistenceGraph& existenceGraph_;
         };
 
     }  // namespace geometric

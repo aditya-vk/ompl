@@ -31,12 +31,12 @@ namespace ompl
             return edge;
         }
 
-        IGLS::FailfastSelector::FailfastSelector(
-            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
-          : probabilityFunction_(probabilityFunction)
+        IGLS::FailfastSelector::FailfastSelector(const IGLS::ExistenceGraph& existenceGraph)
+          : existenceGraph_(std::move(existenceGraph))
         {
             // Do nothing.
         }
+
         IGLS::VertexPtrPair IGLS::FailfastSelector::edgeToEvaluate(const VertexPtrVector &reversePath) const
         {
             assert(reversePath.size() >= 2);
@@ -53,7 +53,7 @@ namespace ompl
                 {
                     continue;
                 }
-                double edgeProbability = probabilityFunction_(u, v);
+                double edgeProbability = existenceGraph_.edgeExistence(u, v);
                 if (edgeProbability <= minimumProbability)
                 {
                     edge = std::make_pair(u, v);

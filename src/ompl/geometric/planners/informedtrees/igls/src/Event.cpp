@@ -61,8 +61,8 @@ namespace ompl
 
         IGLS::SubpathExistenceEvent::SubpathExistenceEvent(
             const double threshold,
-            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
-          : IGLS::Event(), threshold_(threshold), probabilityFunction_(probabilityFunction)
+            const IGLS::ExistenceGraph& existenceGraph)
+          : IGLS::Event(), threshold_(threshold), existenceGraph_(std::move(existenceGraph))
         {
             // Do nothing.
         }
@@ -88,7 +88,7 @@ namespace ompl
                 {
                     continue;
                 }
-                existenceProbability *= probabilityFunction_(vertex->getParent(), vertex);
+                existenceProbability *= existenceGraph_.edgeExistence(vertex->getParent(), vertex);
                 if (existenceProbability < threshold_)
                 {
                     return true;

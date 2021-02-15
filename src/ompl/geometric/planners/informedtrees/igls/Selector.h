@@ -30,7 +30,7 @@ namespace ompl
         class IGLS::FailfastSelector : public Selector
         {
         public:
-            FailfastSelector(const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
+            FailfastSelector(const IGLS::ExistenceGraph& existenceGraph);
             virtual ~FailfastSelector() = default;
 
             /** \brief Returns edge with least existence probability to evaluate. */
@@ -38,7 +38,7 @@ namespace ompl
 
         private:
             /** \brief Returns probability of existence of edge between two vertices. */
-            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction_;
+            const IGLS::ExistenceGraph& existenceGraph_;
         };
     }  // namespace geometric
 }  // namespace ompl
