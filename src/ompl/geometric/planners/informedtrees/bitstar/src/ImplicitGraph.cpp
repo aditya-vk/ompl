@@ -1086,9 +1086,7 @@ namespace ompl
 
                     // Update the beacon dispersion.
                     // Set the beacon dispersion.
-                    beaconDispersions_.push_back(
-                        std::max(spaceInformation_->distance(startVertices_.front()->state(), newState->state()),
-                                 spaceInformation_->distance(newState->state(), goalVertices_.front()->state())));
+                    beaconDispersions_.push_back(startGoalDistance);
                 }
             }
 
@@ -1175,8 +1173,8 @@ namespace ompl
                     costHelpPtr_->subtractCost(solutionCost_, costHelpPtr_->lowerBoundHeuristicVertex(vertex)).value();
                 double normalizedPromise = promise / solutionCost_.value();
                 double normalizedBeaconDispersion =
-                    beaconDispersions_.at(index) /
-                    std::accumulate(beaconDispersions_.begin(), beaconDispersions_.end(), 0.0);
+                    beaconDispersions_.at(index) / spaceInformation_->getStateSpace()->getMaximumExtent();
+                // std::cout << index << ": " << promise << " " << normalizedBeaconDispersion << std::endl;
                 return guidedAlpha_ * normalizedPromise + (1 - guidedAlpha_) * normalizedBeaconDispersion;
             };
 
@@ -1188,6 +1186,7 @@ namespace ompl
 
             // Process all the vertices after resetting the best metric.
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
+            // Correction for beacon dispersion.
             for (int i = 0; i < landmarkSamples_.size(); ++i)
             {
                 // Ignore vertices that are outside the informed set.
@@ -1207,6 +1206,8 @@ namespace ompl
             }
             // Increment the selection increment.
             bestSubgoalVertex_->incrementBeaconCount();
+            // std::cout << "Choosing " << bestSubgoalIndex_ << " " << metricForBestSubgoalVertex_ << std::endl;
+            // std::cin.get();
 
             // Update the chosen vertex dispersion.
             updateBeaconDispersion();
@@ -1224,8 +1225,8 @@ namespace ompl
             double increment = 0;
             if (bestSubgoalIndex_ != -1)
             {
-                increment = beaconDispersions_.at(bestSubgoalIndex_) /
-                            std::accumulate(beaconDispersions_.begin(), beaconDispersions_.end(), 0.0);
+                // TODO(avk): this is not correct, we want to penalize in absolute sense.
+                increment = beaconDispersions_.at(bestSubgoalIndex_) / beaconDispersions_.front();
             }
             banditUpdateVertexFunc_(solutionCost_.value(), increment);
 
@@ -1243,7 +1244,7 @@ namespace ompl
             }
             assert(!validLandmarkIndices.empty());
             bestSubgoalIndex_ = banditSelectVertexFunc_(validLandmarkIndices);
-            std::cout << "Chose " << bestSubgoalIndex_ << std::endl;
+            // std::cout << "Chose " << bestSubgoalIndex_ << std::endl;
             bestSubgoalVertex_ = landmarkSamples_.at(bestSubgoalIndex_);
             bestSubgoalVertex_->incrementBeaconCount();
             updateBeaconDispersion();
@@ -1271,6 +1272,16 @@ namespace ompl
                 numNewSamplesInCurrentBatch_;
             beaconSampledVolumes_.at(bestSubgoalIndex_) = sampledVolume;
             beaconDispersions_.at(bestSubgoalIndex_) = sampledVolume / coverageSamples_.at(bestSubgoalIndex_);
+
+            // // Upper bound dispersion with the informed set dispersion.
+            // if (bestSubgoalIndex_ == 0 || bestSubgoalIndex_ == 1)
+            // {
+            //     for (int i = 0; i < beaconDispersions_.size(); ++i)
+            //     {
+            //         beaconDispersions_[i] = std::min(std::min(beaconDispersions_.at(0), beaconDispersions_.at(1)),
+            //                                          beaconDispersions_.at(i));
+            //     }
+            // }
         }
 
         void BITstar::ImplicitGraph::findBestSubgoalVertex()
