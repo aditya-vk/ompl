@@ -1,94 +1,99 @@
 #include "ompl/geometric/planners/informedtrees/igls/ExistenceGraph.h"
+#include "ompl/tools/config/SelfConfig.h"
+#include "ompl/geometric/planners/informedtrees/igls/Vertex.h"
+#include "ompl/datastructures/NearestNeighborsGNATNoThreadSafety.h"
 
 namespace ompl
 {
     namespace geometric
     {
-        IGLS::ExistenceGraph::ExistenceGraph(
-          const std::string& dataset, std::size_t edgeDiscretization, double obstacleDensity_)
-          : edgeExistenceSparseDiscretization_{edgeDiscretization}, obstacleDensity_{obstacleDensity}
+        IGLS::ExistenceGraph::ExistenceGraph(const std::string &datasetPath, std::size_t edgeDiscretization,
+                                             double obstacleDensity)
+          : datasetPath_(datasetPath)
+          , edgeExistenceSparseDiscretization_{edgeDiscretization}
+          , obstacleDensity_{obstacleDensity}
         {
-            loadDataset(dataset);
+            // Do nothing.
         }
 
         void IGLS::ExistenceGraph::setup(const ompl::base::SpaceInformationPtr &spaceInformation,
-                                         const ompl::base::ProblemDefinitionPtr &problemDefinition,
-                                         CostHelper *costHelper, SearchQueue *searchQueue,
-                                         const ompl::base::Planner *plannerPtr,
-                                         ompl::base::PlannerInputStates &inputStates)
+                                         CostHelper *costHelper, SearchQueue *queuePtr,
+                                         const ompl::base::Planner *plannerPtr)
         {
-            isSetup_ = true;
             spaceInformation_ = spaceInformation;
-            // are other arguments needed?
-
+            costHelpPtr_ = costHelper;
+            queuePtr_ = queuePtr;
             if (!static_cast<bool>(nn_))
             {
                 nn_.reset(ompl::tools::SelfConfig::getDefaultNearestNeighbors<VertexPtr>(plannerPtr));
             }
-
             NearestNeighbors<VertexPtr>::DistanceFunction distanceFunction(
-                [this](const VertexConstPtr &a, const VertexConstPtr &b) { return distance(a, b); });
+                [this](const VertexPtr &a, const VertexPtr &b) { return distance(a, b); });
             nn_->setDistanceFunction(distanceFunction);
+            loadDataset();
         }
 
-        template <template <typename T> class NN>
-        void IGLS::ExplicitGraph::setNearestNeighbors()
+        void IGLS::ExistenceGraph::loadDataset()
         {
-            // Check if the problem is already setup, if so, the NN structs have data in them and you can't really
-            // change them:
-            if (isSetup_)
+            std::vector<std::vector<double>> data = readDataFromFile(datasetPath_);
+            std::size_t dimension = spaceInformation_->getStateSpace()->getDimension();
+            for (const auto &row : data)
             {
-                // TODO: what's nameFunc_?
-                // OMPL_WARN("%s (ExplicitGraph): The nearest neighbour datastructures cannot be changed once the problem "
-                //           "is setup. Continuing to use the existing containers.",
-                //           nameFunc_().c_str());
+                std::vector<double> position;
+                for (int i = 0; i < dimension; ++i)
+                {
+                    position.push_back(row[i]);
+                }
+                auto vertex = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, nullptr);
+                spaceInformation_->getStateSpace()->copyFromReals(vertex->state(), position);
+                numFree_.push_back(row.at(dimension));
+                numColl_.push_back(row.back());
+                nn_->add(vertex);
             }
-            else
-            {
-                // The problem isn't setup yet, create NN structs of the specified type:
-                nn_ = std::make_shared<NN<VertexPtr>>();
-            }
         }
 
-        double IGLS::ExplicitGraph::distance(const VertexConstPtr &a, const VertexConstPtr &b) const
-        {
-            ASSERT_SETUP
-            // TODO: will there be a problem if the vertices aren't in the same graph?
-            return spaceInformation_->distance(b->state(), a->state());
-        }
-
-        void IGLS::ExistenceGraph::loadDataset(const std::string& dataset)
-        {
-            // TODO(avk): Load vertices from...?
-
-            // TODO(avk): Load dataset from...?
-            // loaded dataset should be graph? with vertex properties num_coll/num_free
-
-            NearestNeighbors<VertexPtr>::DistanceFunction distanceFunction(
-                [this](const VertexConstPtr &a, const VertexConstPtr &b) { return distance(a, b); });
-            nn_->setDistanceFunction(distanceFunction);
-        }
-
-        double vertexExistence(const VertexPtr& v)
+        double IGLS::ExistenceGraph::vertexExistence(const VertexPtr &v) const
         {
             if (nn_->size() < k_)
+            {
                 return existencePrior_;
+            }
+            std::vector<double> p;
+            spaceInformation_->getStateSpace()->copyToReals(p, v->state());
+            std::cout << "Current position " << p[0] << " " << p[1] << std::endl;
+            // std::cin.get();
 
-            VertexPtrVector *neighbors;
-            nn_->nearestK(v, k_, *neighbors);
+            VertexPtrVector neighbors;
+            nn_->nearestK(v, k_, neighbors);
 
             double alpha = 1;
             double beta = 1;
             for (std::size_t i = 0; i < k_; ++i)
             {
                 double weight = exp(-obstacleDensity_ * distance(v, neighbors[i]));
-                alpha += weight * numFree_[neighbors[i]];
-                beta  += weight * numColl_[neighbors[i]];
+                spaceInformation_->getStateSpace()->copyToReals(p, neighbors[i]->state());
+                if (p[0] == 0.5 && p[1] == 0.5)
+                {
+                    std::cout << "Nearest Neighbor " << p[0] << " " << p[1] << " " << distance(v, neighbors[i]) << " "
+                              << weight << std::endl;
+                    std::cin.get();
+                }
+                // TODO(avk): Maybe this should be a map and not a vector.
+                alpha += weight * numFree_[neighbors[i]->getId()];
+                beta += weight * numColl_[neighbors[i]->getId()];
             }
+            std::cout << "Alpha: " << alpha << " " << beta << std::endl;
             return alpha / (alpha + beta);
         }
 
-        double edgeExistence(const VertexPtr& u, const VertexPtr& v)
+        double IGLS::ExistenceGraph::stateExistence(const ompl::base::State *state) const
+        {
+            auto vertex = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, nullptr);
+            spaceInformation_->copyState(vertex->state(), state);
+            return vertexExistence(vertex);
+        }
+
+        double IGLS::ExistenceGraph::edgeExistence(const VertexPtr &u, const VertexPtr &v) const
         {
             // TODO(avk): initialize this, e.g.
             // disc = linspace(0, 1, edgeExistenceSparseDiscretization_);
@@ -98,14 +103,42 @@ namespace ompl
             // the OMPL NN seems not to permit vectorized nearest-neighbor
             // queries, so we might need to do this one discretization at a time
             double edgeExistence = 1.0;
-            for (const auto& s : sparseEdgeDiscretization)
+            for (const auto &s : sparseEdgeDiscretization)
             {
                 // p(edge exists)
                 //   = p(all vertices along edge exist)
                 //   = min_v p(vertex exists)
-                edgeExistence = min(edgeExistence, vertexExistence(s));
+                edgeExistence = std::min(edgeExistence, vertexExistence(s));
             }
             return edgeExistence;
         }
-    }
-}
+
+        std::vector<std::vector<double>> IGLS::ExistenceGraph::readDataFromFile(std::string filename) const
+        {
+            std::ifstream inputFile(filename);
+            std::vector<std::vector<double>> configurations;
+            if (inputFile)
+            {
+                while (true)
+                {
+                    std::string line;
+                    double value;
+
+                    std::getline(inputFile, line);
+
+                    std::stringstream ss(line, std::ios_base::out | std::ios_base::in | std::ios_base::binary);
+
+                    if (!inputFile)
+                        break;
+                    std::vector<double> row;
+                    while (ss >> value)
+                    {
+                        row.emplace_back(value);
+                    }
+                    configurations.emplace_back(row);
+                }
+            }
+            return configurations;
+        }
+    }  // namespace geometric
+}  // namespace ompl

@@ -2,45 +2,58 @@
 #define OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_EXISTENCEGRAPH_
 
 #include "ompl/datastructures/NearestNeighbors.h"
+#include "ompl/geometric/planners/informedtrees/IGLS.h"
+#include "ompl/geometric/planners/informedtrees/igls/Vertex.h"
 
 namespace ompl
 {
     namespace geometric
     {
-
         class IGLS::ExistenceGraph
         {
         public:
-            explicit ExistenceGraph(
-              // take a vector of vertices here
-              const std::string& dataset,
-              std::size_t edgeDiscretization,
-              double obstacleDensity);
+            ExistenceGraph(
+                // take a vector of vertices here
+                const std::string &datasetPath, std::size_t edgeDiscretization, double obstacleDensity);
 
-            double vertexExistence(const VertexPtr& v);
+            /** \brief Computes the probability of a vertex being collision-free. */
+            double vertexExistence(const VertexPtr &v) const;
+            double stateExistence(const ompl::base::State *state) const;
 
-            double edgeExistence(const VertexPtr& u, const VertexPtr& v);
+            /** \brief Computes the probability of an edge being collision-free. */
+            double edgeExistence(const VertexPtr &u, const VertexPtr &v) const;
+
+            /** \brief Setup existence graph datastrcucture */
+            void setup(const ompl::base::SpaceInformationPtr &spaceInformation, CostHelper *costHelper,
+                       SearchQueue *searchQueue, const ompl::base::Planner *plannerPtr);
 
         protected:
-            void loadDataset(const std::string& dataset);
+            /** \brief Loads dataset of priors. */
+            void loadDataset();
 
         private:
-            /** \brief Whether the class is setup. */
-            bool isSetup_{false};
+            double distance(const VertexPtr &a, const VertexPtr &b) const
+            {
+                return spaceInformation_->distance(b->state(), a->state());
+            }
+
+            std::vector<std::vector<double>> readDataFromFile(std::string filename) const;
 
             /** \brief The state space used by the planner. */
             ompl::base::SpaceInformationPtr spaceInformation_{nullptr};
+            CostHelper *costHelpPtr_{nullptr};
+            SearchQueue *queuePtr_{nullptr};
 
-            /** \brief Path to dataset? */
+            /** \brief Path to dataset */
             std::string datasetPath_;
 
-            /** \brief Vector(?) indexed by vertex. Number of environments in
+            /** \brief Vector indexed by vertex. Number of environments in
              * the dataset where that vertex is free. */
-            const std::vector<std::size_t> numFree_;
+            std::vector<std::size_t> numFree_;
 
-            /** \brief Vector(?) indexed by vertex. Number of environments in
+            /** \brief Vector indexed by vertex. Number of environments in
              * the dataset where that vertex is in collision. */
-            const std::vector<std::size_t> numColl_;
+            std::vector<std::size_t> numColl_;
 
             /** \brief Number of nearest neighbors to estimate existence. */
             std::size_t k_{1u};
@@ -58,9 +71,8 @@ namespace ompl
              * collision probability in the dataset. */
             VertexPtrNNPtr nn_{nullptr};
 
-      }; // class ExistenceGraph
-    } // namespace geometric
-} //namespace ompl
-
+        };  // class ExistenceGraph
+    }       // namespace geometric
+}  // namespace ompl
 
 #endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_EXISTENCEGRAPH_

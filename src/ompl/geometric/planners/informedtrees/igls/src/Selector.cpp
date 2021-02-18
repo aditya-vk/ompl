@@ -2,6 +2,7 @@
 
 #include "ompl/geometric/planners/informedtrees/igls/Selector.h"
 #include "ompl/geometric/planners/informedtrees/igls/Vertex.h"
+#include "ompl/geometric/planners/informedtrees/igls/ExistenceGraph.h"
 
 namespace ompl
 {
@@ -11,6 +12,12 @@ namespace ompl
         {
             // Do nothing.
         }
+
+        void IGLS::Selector::setup(ExistenceGraph *const existenceGraphPtr)
+        {
+            existenceGraphPtr_ = existenceGraphPtr_;
+        }
+
         IGLS::VertexPtrPair IGLS::Selector::edgeToEvaluate(const VertexPtrVector &reversePath) const
         {
             assert(reversePath.size() >= 2);
@@ -31,8 +38,7 @@ namespace ompl
             return edge;
         }
 
-        IGLS::FailfastSelector::FailfastSelector(const IGLS::ExistenceGraph& existenceGraph)
-          : existenceGraph_(std::move(existenceGraph))
+        IGLS::FailfastSelector::FailfastSelector()
         {
             // Do nothing.
         }
@@ -53,7 +59,7 @@ namespace ompl
                 {
                     continue;
                 }
-                double edgeProbability = existenceGraph_.edgeExistence(u, v);
+                double edgeProbability = existenceGraphPtr_->edgeExistence(u, v);
                 if (edgeProbability <= minimumProbability)
                 {
                     edge = std::make_pair(u, v);

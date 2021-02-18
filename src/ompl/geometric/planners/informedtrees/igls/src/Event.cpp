@@ -3,6 +3,7 @@
 #include "ompl/geometric/planners/informedtrees/igls/Event.h"
 #include "ompl/geometric/planners/informedtrees/igls/ImplicitGraph.h"
 #include "ompl/geometric/planners/informedtrees/igls/Vertex.h"
+#include "ompl/geometric/planners/informedtrees/igls/ExistenceGraph.h"
 
 namespace ompl
 {
@@ -13,9 +14,10 @@ namespace ompl
             // Do nothing.
         }
 
-        void IGLS::Event::setup(ImplicitGraph *graphPtr)
+        void IGLS::Event::setup(ImplicitGraph *const graphPtr, ExistenceGraph *const existenceGraphPtr)
         {
             graphPtr_ = graphPtr;
+            existenceGraphPtr_ = existenceGraphPtr_;
         }
 
         bool IGLS::Event::isTriggered(const VertexPtr &vertex) const
@@ -59,10 +61,8 @@ namespace ompl
             return false;
         }
 
-        IGLS::SubpathExistenceEvent::SubpathExistenceEvent(
-            const double threshold,
-            const IGLS::ExistenceGraph& existenceGraph)
-          : IGLS::Event(), threshold_(threshold), existenceGraph_(std::move(existenceGraph))
+        IGLS::SubpathExistenceEvent::SubpathExistenceEvent(const double threshold)
+          : IGLS::Event(), threshold_(threshold)
         {
             // Do nothing.
         }
@@ -88,7 +88,7 @@ namespace ompl
                 {
                     continue;
                 }
-                existenceProbability *= existenceGraph_.edgeExistence(vertex->getParent(), vertex);
+                existenceProbability *= existenceGraphPtr_->edgeExistence(vertex->getParent(), vertex);
                 if (existenceProbability < threshold_)
                 {
                     return true;

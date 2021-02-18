@@ -21,7 +21,7 @@ namespace ompl
             virtual ~Event() = default;
 
             /** \brief Setup the event to provide it with the graph. */
-            void setup(ImplicitGraph *const graphPtr);
+            void setup(ImplicitGraph *const graphPtr, IGLS::ExistenceGraph *const existenceGraphPtr);
 
             /** \brief Returns true if the vertex triggers the event.
              * Default behavior implements LazySP i.e. triggers when vertex is goal. */
@@ -29,6 +29,7 @@ namespace ompl
 
         protected:
             ImplicitGraph *graphPtr_;
+            IGLS::ExistenceGraph *existenceGraphPtr_;
         };
 
         /** \brief ConstantDepthEvent.*/
@@ -50,9 +51,7 @@ namespace ompl
         class IGLS::SubpathExistenceEvent : public IGLS::Event
         {
         public:
-            explicit SubpathExistenceEvent(
-                const double threshold,
-                const IGLS::ExistenceGraph& existenceGraph);
+            explicit SubpathExistenceEvent(const double threshold);
 
             /** \brief Returns true if the vertex triggers the event.
              * Triggers when the lazy subpath to vertex has existence probability less than \c threshold. */
@@ -61,9 +60,6 @@ namespace ompl
         private:
             /** \brief Denotes the threshold below which the the event triggers. */
             const double threshold_;
-
-            /** \brief Returns probability of existence of edge between two vertices. */
-            const IGLS::ExistenceGraph& existenceGraph_;
         };
 
     }  // namespace geometric

@@ -75,7 +75,6 @@ namespace ompl
           , currentApproximationId_(approximationId)
         {
             PRINT_VERTEX_CHANGE
-
             if (this->isRoot())
             {
                 cost_ = costHelpPtr_->identityCost();

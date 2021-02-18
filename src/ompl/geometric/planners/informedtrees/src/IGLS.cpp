@@ -19,6 +19,7 @@
 #include "ompl/geometric/planners/informedtrees/igls/ImplicitGraph.h"
 #include "ompl/geometric/planners/informedtrees/igls/SearchQueue.h"
 #include "ompl/geometric/planners/informedtrees/igls/Event.h"
+#include "ompl/geometric/planners/informedtrees/igls/ExistenceGraph.h"
 #include "ompl/geometric/planners/informedtrees/igls/Selector.h"
 
 #ifdef IGLS_DEBUG
@@ -164,17 +165,24 @@ namespace ompl
                 queuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
                 repairQueuePtr_->setup(costHelpPtr_.get(), graphPtr_.get());
 
+                // Setup the existence graph BEFORE the event or selector.
+                if (existenceGraphPtr_)
+                {
+                    existenceGraphPtr_->setup(Planner::si_, costHelpPtr_.get(), queuePtr_.get(), this);
+                }
+
                 // Setup the event and the selector. If either is not constructed yet, default.
                 if (!eventPtr_)
                 {
                     eventPtr_ = std::make_shared<Event>();
                 }
-                eventPtr_->setup(graphPtr_.get());
+                eventPtr_->setup(graphPtr_.get(), existenceGraphPtr_.get());
+
                 if (!selectorPtr_)
                 {
                     selectorPtr_ = std::make_shared<Selector>();
                 }
-                // selectorPtr_->setup(graphPtr_.get());
+                selectorPtr_->setup(existenceGraphPtr_.get());
 
                 // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
                 // NN struct and check for starts/goals, respectively.
@@ -250,6 +258,7 @@ namespace ompl
              * There is a theoretically better solution:
              * (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_) == true)
              */
+            startTimer();
             while (!ptc && !costHelpPtr_->isSatisfied(bestCost_) &&
                    (costHelpPtr_->isCostBetterThan(graphPtr_->minCost(), bestCost_)))
             {
@@ -954,6 +963,7 @@ namespace ompl
         void IGLS::registerSolution()
         {
             // We have an exact solution, update tracked costs.
+            recordTimer();
             hasExactSolution_ = true;
             // Cache parent as a neighbor for each child.
             this->cacheNeighbors();
@@ -972,8 +982,9 @@ namespace ompl
 
             // Save the cost and the total number of samples.
             std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
-            plannerMetrics_.push_back(std::vector<double>{
-                (double)graphSize, bestCost_.value(), (double)numEdgeCollisionChecks_, (double)numVerticesRewired_});
+            plannerMetrics_.push_back(std::vector<double>{(double)graphSize, bestCost_.value(),
+                                                          (double)numEdgeCollisionChecks_, (double)numVerticesRewired_,
+                                                          elapsedTime_});
 
             // Save the shortest path.
             std::vector<double> currentPosition, currentShortestPath;
@@ -1255,11 +1266,9 @@ namespace ompl
             eventPtr_ = std::make_shared<ConstantDepthEvent>(depth);
         }
 
-        void IGLS::useSubpathExistenceEvent(
-            const double threshold,
-            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
+        void IGLS::useSubpathExistenceEvent(const double threshold)
         {
-            eventPtr_ = std::make_shared<SubpathExistenceEvent>(threshold, probabilityFunction);
+            eventPtr_ = std::make_shared<SubpathExistenceEvent>(threshold);
         }
 
         void IGLS::useForwardSelector()
@@ -1267,10 +1276,9 @@ namespace ompl
             selectorPtr_ = std::make_shared<Selector>();
         }
 
-        void IGLS::useFailfastSelector(
-            const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction)
+        void IGLS::useFailfastSelector()
         {
-            selectorPtr_ = std::make_shared<FailfastSelector>(probabilityFunction);
+            selectorPtr_ = std::make_shared<FailfastSelector>();
         }
 
         std::string IGLS::bestCostProgressProperty() const
@@ -1415,6 +1423,12 @@ namespace ompl
         std::vector<std::vector<double>> IGLS::getPlannerMetrics() const
         {
             return plannerMetrics_;
+        }
+
+        void IGLS::setExistenceGraph(const std::string &datasetPath, std::size_t edgeDiscretization,
+                                     double obstacleDensity)
+        {
+            existenceGraphPtr_ = std::make_shared<ExistenceGraph>(datasetPath, edgeDiscretization, obstacleDensity);
         }
     }  // namespace geometric
 }  // namespace ompl

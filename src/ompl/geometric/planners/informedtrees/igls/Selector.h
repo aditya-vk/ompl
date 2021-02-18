@@ -19,26 +19,26 @@ namespace ompl
         public:
             Selector();
             virtual ~Selector() = default;
+            void setup(IGLS::ExistenceGraph *const existenceGraphPtr);
 
             /** \brief Returns edge to evaluate.
              * Default behavior implements forward selector i.e. returns
              * unevaluated edge closest to the start */
             virtual VertexPtrPair edgeToEvaluate(const VertexPtrVector &reversePath) const;
+
+        protected:
+            IGLS::ExistenceGraph *existenceGraphPtr_;
         };
 
         /** \brief A selector.*/
         class IGLS::FailfastSelector : public Selector
         {
         public:
-            FailfastSelector(const IGLS::ExistenceGraph& existenceGraph);
+            FailfastSelector();
             virtual ~FailfastSelector() = default;
 
             /** \brief Returns edge with least existence probability to evaluate. */
             VertexPtrPair edgeToEvaluate(const VertexPtrVector &reversePath) const override;
-
-        private:
-            /** \brief Returns probability of existence of edge between two vertices. */
-            const IGLS::ExistenceGraph& existenceGraph_;
         };
     }  // namespace geometric
 }  // namespace ompl

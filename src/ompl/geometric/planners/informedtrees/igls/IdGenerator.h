@@ -36,7 +36,7 @@ namespace ompl
         private:
             // Variables:
             // The next ID to be returned. We never use 0.
-            IGLS::VertexId nextId_{1u};
+            IGLS::VertexId nextId_{0u};
             // The mutex
             std::mutex idMutex_;
         };

@@ -4,6 +4,7 @@
 #define OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_
 
 #include <string>
+#include <chrono>
 #include <utility>
 #include <vector>
 #include <fstream>
@@ -44,6 +45,8 @@ namespace ompl
             /** \brief The selector defining the strategy to choose edges to evaluate. */
             class Selector;
             class FailfastSelector;
+            /** \brief Datastructure to hold auxilliary information on validity priors. */
+            class ExistenceGraph;
 
             // ---
             // Aliases.
@@ -104,6 +107,13 @@ namespace ompl
             void getPlannerData(base::PlannerData &data) const override;
             std::vector<std::vector<double>> getPlannerMetrics() const;
             std::vector<std::vector<double>> getShortestPaths() const;
+            void setExistenceGraph(const std::string &datasetPath, std::size_t edgeDiscretization,
+                                   double obstacleDensity);
+            std::shared_ptr<ExistenceGraph> getExistenceGraph() const
+            {
+                return existenceGraphPtr_;
+            }
+            std::shared_ptr<ExistenceGraph> existenceGraphPtr_;
 
             // ---
             // Debugging info.
@@ -186,12 +196,9 @@ namespace ompl
             // IGLS settings.
             void useShortestPathEvent();
             void useConstantDepthEvent(const std::size_t depth);
-            void useSubpathExistenceEvent(
-                const double threshold,
-                const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
+            void useSubpathExistenceEvent(const double threshold);
             void useForwardSelector();
-            void
-            useFailfastSelector(const std::function<double(const VertexPtr &, const VertexPtr &)> &probabilityFunction);
+            void useFailfastSelector();
 
         protected:
             /** \brief Enable the cascading of rewirings. */
@@ -452,6 +459,18 @@ namespace ompl
             // Logger settings:
             std::vector<std::vector<double>> plannerMetrics_;
             std::vector<std::vector<double>> shortestPaths_;
+            void startTimer()
+            {
+                startTime_ = std::chrono::system_clock::now();
+            }
+            void recordTimer()
+            {
+                std::chrono::time_point<std::chrono::system_clock> endTime(std::chrono::system_clock::now());
+                std::chrono::duration<double> totalTime{endTime - startTime_};
+                elapsedTime_ = totalTime.count();
+            }
+            std::chrono::time_point<std::chrono::system_clock> startTime_;
+            double elapsedTime_{0};
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl
