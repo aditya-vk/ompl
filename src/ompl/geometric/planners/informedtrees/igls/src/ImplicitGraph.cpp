@@ -548,7 +548,7 @@ namespace ompl
             {
                 // Remove this edge.
                 vertexCopy->removeChild(child);
-                child->removeParent(false);
+                child->removeParent(false, false);
 
                 // If the child is in the queue, remove that as well.
                 queuePtr_->removeVertexFromQueue(child);
@@ -593,7 +593,7 @@ namespace ompl
             }
 
             // Remove my parent link, cascading cost updates if requested:
-            child->removeParent(cascadeCostUpdates);
+            child->removeParent(cascadeCostUpdates, false);
         }
 
         /////////////////////////////////////////////////////////////////////////////////////////////

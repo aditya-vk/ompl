@@ -74,6 +74,12 @@ namespace ompl
             /** \brief Get the depth of the vertex from the root. */
             unsigned int getDepth() const;
 
+            /** \brief Get the depth of the vertex from the root. */
+            unsigned int getLazyDepth() const;
+
+            /** \brief Get the depth of the vertex from the root. */
+            double getExistenceProbability() const;
+
             /** \brief Get a const pointer to the parent of this vertex. */
             VertexConstPtr getParent() const;
 
@@ -98,11 +104,11 @@ namespace ompl
 
             /** \brief Set the parent of this vertex, cannot be used to replace a previous parent. Will always update
              * this vertex's cost, and can update descendent costs. */
-            void addParent(const VertexPtr &newParent, const ompl::base::Cost &edgeInCost);
+            void addParent(const VertexPtr &newParent, const ompl::base::Cost &edgeInCost, bool incomingEdgeEvaluated);
 
             /** \brief Remove the parent of this vertex. Will always update this vertex's cost, and can update the
              * descendent costs. */
-            void removeParent(bool updateChildCosts);
+            void removeParent(bool updateChildCosts, bool updateLazyParameters);
 
             /** \brief Get whether this vertex has any children. */
             bool hasChildren() const;
@@ -203,6 +209,9 @@ namespace ompl
             // Clear a vertex's search queue iterator.
             void clearVertexQueueLookup();
 
+            // Updates the lazy parameters.
+            void updateLazyParametersOnEdgeEvaluation(bool incomingEdgeEvaluated);
+
         private:
             // ---
             // Internal bookkeeping.
@@ -210,7 +219,7 @@ namespace ompl
 
             /** \brief Calculates the updated cost and depth of the current state, optionally calls itself on all
              * children. */
-            void updateCostAndDepth(bool cascadeUpdates = true);
+            void updateCostAndDepth(bool cascadeUpdates = true, bool incomingEdgeEvaluated = true);
 
             // ---
             // Member variables.
@@ -243,6 +252,12 @@ namespace ompl
 
             /** \brief The depth of the state.  */
             unsigned int depth_{0u};
+
+            /** \brief The lazy depth in the subpath to this vertex. */
+            unsigned int lazyDepth_{0u};
+
+            /** \brief The existence probability of the subpath to this vertex. */
+            double existenceProbability_{1.0};
 
             /** \brief The parent state as a shared pointer such that the parent will not be deleted until all the
              * children are. */

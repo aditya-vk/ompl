@@ -150,6 +150,20 @@ namespace ompl
             return depth_;
         }
 
+        unsigned int IGLS::Vertex::getLazyDepth() const
+        {
+            ASSERT_NOT_PRUNED
+
+            return lazyDepth_;
+        }
+
+        double IGLS::Vertex::getExistenceProbability() const
+        {
+            ASSERT_NOT_PRUNED
+
+            return existenceProbability_;
+        }
+
         IGLS::VertexConstPtr IGLS::Vertex::getParent() const
         {
             ASSERT_NOT_PRUNED
@@ -192,7 +206,8 @@ namespace ompl
             return parentPtr_;
         }
 
-        void IGLS::Vertex::addParent(const VertexPtr &newParent, const ompl::base::Cost &edgeInCost)
+        void IGLS::Vertex::addParent(const VertexPtr &newParent, const ompl::base::Cost &edgeInCost,
+                                     bool incomingEdgeEvaluated)
         {
             PRINT_VERTEX_CHANGE
             ASSERT_NOT_PRUNED
@@ -216,10 +231,10 @@ namespace ompl
             edgeCost_ = edgeInCost;
 
             // Update my cost and that of my children.
-            this->updateCostAndDepth(true);
+            this->updateCostAndDepth(true, incomingEdgeEvaluated);
         }
 
-        void IGLS::Vertex::removeParent(bool updateChildCosts)
+        void IGLS::Vertex::removeParent(bool updateChild, bool updateLazyParameter)
         {
             PRINT_VERTEX_CHANGE
             ASSERT_NOT_PRUNED
@@ -241,7 +256,7 @@ namespace ompl
             parentPtr_.reset();
 
             // Update my cost and possibly the cost of my descendants:
-            this->updateCostAndDepth(updateChildCosts);
+            this->updateCostAndDepth(updateChild, updateLazyParameter);
         }
 
         bool IGLS::Vertex::hasChildren() const
@@ -589,7 +604,7 @@ namespace ompl
             vertexQueueLookup_ = nullptr;
         }
 
-        void IGLS::Vertex::updateCostAndDepth(bool cascadeUpdates /*= true*/)
+        void IGLS::Vertex::updateCostAndDepth(bool cascadeUpdates, bool incomingEdgeEvaluated)
         {
             PRINT_VERTEX_CHANGE
             ASSERT_NOT_PRUNED
@@ -599,6 +614,8 @@ namespace ompl
                 // Am I root? -- I don't really know how this would ever be called, but ok.
                 cost_ = costHelpPtr_->identityCost();
                 depth_ = 0u;
+                lazyDepth_ = 0u;
+                existenceProbability_ = 1.0;
             }
             else if (!this->hasParent())
             {
@@ -608,16 +625,9 @@ namespace ompl
                 // Set the depth to 0u, getDepth will throw in this condition
                 depth_ = 0u;
 
-#ifdef IGLS_DEBUG
-                // Assert that I have not been asked to cascade this bad data to my children:
-                if (this->hasChildren() && cascadeUpdates)
-                {
-                    throw ompl::Exception("Attempting to update descendants' costs and depths of a vertex that "
-                                          "does "
-                                          "not have a parent and is not root. This information would therefore be "
-                                          "gibberish.");
-                }
-#endif  // IGLS_DEBUG
+                // Reset values to default.
+                lazyDepth_ = 0u;
+                existenceProbability_ = 1.0;
             }
             else
             {
@@ -632,6 +642,10 @@ namespace ompl
 
                 // I am one more than my parent's depth:
                 depth_ = (parentPtr_->getDepth() + 1u);
+
+                // I have a parent, so my lazy parameter is updated using my parent's.
+                incomingEdgeEvaluated ? (lazyDepth_ = parentPtr_->getLazyDepth()) :
+                                        (lazyDepth_ = parentPtr_->getLazyDepth() + 1u);
             }
 
             // Am I updating my children?
@@ -640,20 +654,46 @@ namespace ompl
                 // Now, iterate over my vector of children and tell each one to update its own damn cost:
                 for (auto &child : children_)
                 {
-#ifdef IGLS_DEBUG
-                    // Check that it hasn't expired
-                    if (child.expired())
-                    {
-                        throw ompl::Exception("A (weak) pointer to a child has was found to have expired while "
-                                              "updating the costs and depths of descendant vertices.");
-                    }
-#endif  // IGLS_DEBUG
-
                     // Get a lock and tell the child to update:
-                    child.lock()->updateCostAndDepth(true);
+                    bool outgoingEdgeEvaluated = hasWhitelistedChild(child.lock());
+                    child.lock()->updateCostAndDepth(true, outgoingEdgeEvaluated);
                 }
             }
             // No else, do not update the children. Let's hope the caller knows what they're doing.
+        }
+
+        void IGLS::Vertex::updateLazyParametersOnEdgeEvaluation(bool incomingEdgeEvaluated)
+        {
+            PRINT_VERTEX_CHANGE
+            ASSERT_NOT_PRUNED
+
+            if (this->isRoot())
+            {
+                // Am I root? -- I don't really know how this would ever be called, but ok.
+                lazyDepth_ = 0u;
+                existenceProbability_ = 1.0;
+            }
+            else if (!this->hasParent())
+            {
+                // Reset the values.
+                lazyDepth_ = 0u;
+                existenceProbability_ = 1.0;
+            }
+            else
+            {
+                // I have a parent, so my lazy parameter is updated using my parent's.
+                // Update lazy depth only if the edge has not been evaluated before.
+                incomingEdgeEvaluated ? (lazyDepth_ = parentPtr_->getLazyDepth()) :
+                                        (lazyDepth_ = parentPtr_->getLazyDepth() + 1u);
+            }
+
+            // Now, iterate over my vector of children and tell each one to update its own damn cost:
+            for (auto &child : children_)
+            {
+                // Get a lock and tell the child to update:
+                bool outgoingEdgeEvaluated = hasWhitelistedChild(child.lock());
+                child.lock()->updateLazyParametersOnEdgeEvaluation(outgoingEdgeEvaluated);
+            }
         }
 
         void IGLS::Vertex::clearLookupsIfOutdated()

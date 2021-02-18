@@ -450,7 +450,9 @@ namespace ompl
                 if (!neighbor->isInTree())
                 {
                     // Add a parent to the child.
-                    neighbor->addParent(vertex, edgeCost);
+                    bool outgoingEdgeEvaluated =
+                        vertex->hasWhitelistedChild(neighbor) || neighbor->hasWhitelistedChild(vertex);
+                    neighbor->addParent(vertex, edgeCost, outgoingEdgeEvaluated);
 
                     // Add a child to the parent.
                     vertex->addChild(neighbor);
@@ -534,6 +536,7 @@ namespace ompl
             else
             {
                 edge.first->whitelistChild(edge.second);
+                edge.second->updateLazyParametersOnEdgeEvaluation(true);
             }
         }
 
@@ -545,7 +548,7 @@ namespace ompl
 
             // Clear the parent. This resets the cost to come to infinity.
             // Do not cascade the costs further down. We will do it manually here.
-            vertex->removeParent(false);
+            vertex->removeParent(false, false);
 
             // Mark the vertex as inconsistent.
             vertex->markInconsistent();
@@ -580,7 +583,9 @@ namespace ompl
                     continue;
                 }
                 // We have a valid neighbor. Rewire.
-                vertex->addParent(neighbor, edgeCost);
+                bool outgoingEdgeEvaluated =
+                    neighbor->hasWhitelistedChild(vertex) || vertex->hasWhitelistedChild(neighbor);
+                vertex->addParent(neighbor, edgeCost, outgoingEdgeEvaluated);
             }
         }
 
@@ -603,7 +608,9 @@ namespace ompl
                 // TODO(avk): I am going to run an expensive operation here for now since addParent()
                 // by default modifies the queuePtr_.
                 repairQueuePtr_->removeVertexFromQueue(neighbor);
-                neighbor->addParent(vertex, edgeCost);
+                bool outgoingEdgeEvaluated =
+                    vertex->hasWhitelistedChild(neighbor) || neighbor->hasWhitelistedChild(vertex);
+                neighbor->addParent(vertex, edgeCost, outgoingEdgeEvaluated);
                 repairQueuePtr_->enqueueVertex(neighbor);
             }
         }
@@ -880,13 +887,14 @@ namespace ompl
             neighbor->getParent()->removeChild(neighbor);
 
             // Remove the parent from the child, not updating costs
-            neighbor->removeParent(false);
+            neighbor->removeParent(false, false);
 
             // Add the parent to the child.
             // TODO(avk): This cascades updates to the entire subtree!
             // Is that necessary and will it ever be the case that this guy has children?
             // Yes, this can happen when a new sample is being rewired to an old vertex.
-            neighbor->addParent(parent, edgeCost);
+            bool outgoingEdgeEvaluated = parent->hasWhitelistedChild(neighbor) || neighbor->hasWhitelistedChild(parent);
+            neighbor->addParent(parent, edgeCost, outgoingEdgeEvaluated);
 
             // Add the child to the parent.
             parent->addChild(neighbor);
