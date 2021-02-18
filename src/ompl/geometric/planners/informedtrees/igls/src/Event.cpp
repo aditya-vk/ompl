@@ -17,12 +17,12 @@ namespace ompl
         void IGLS::Event::setup(ImplicitGraph *const graphPtr, ExistenceGraph *const existenceGraphPtr)
         {
             graphPtr_ = graphPtr;
-            existenceGraphPtr_ = existenceGraphPtr_;
+            existenceGraphPtr_ = existenceGraphPtr;
         }
 
         bool IGLS::Event::isTriggered(const VertexPtr &vertex) const
         {
-            return (vertex == graphPtr_->getGoalVertex());
+            return (vertex->getId() == graphPtr_->getGoalVertex()->getId());
         }
 
         IGLS::ConstantDepthEvent::ConstantDepthEvent(std::size_t depth) : IGLS::Event(), depth_(depth)
@@ -77,22 +77,25 @@ namespace ompl
             {
                 return true;
             }
+
             // Get the probability of the subpath.
             VertexPtr currVertex = vertex;
             double existenceProbability = 1.0;
             while (currVertex->getParent())
             {
                 // If the edge is evaluated, continue to the next edge in the subpath.
-                if (vertex->hasWhitelistedChild(vertex->getParent()) ||
-                    vertex->getParent()->hasWhitelistedChild(vertex))
+                const auto &parent = currVertex->getParent();
+                const bool evaluatedEdge =
+                    currVertex->hasWhitelistedChild(parent) || parent->hasWhitelistedChild(currVertex);
+                if (!evaluatedEdge)
                 {
-                    continue;
+                    existenceProbability *= existenceGraphPtr_->edgeExistence(parent, currVertex);
+                    if (existenceProbability < threshold_)
+                    {
+                        return true;
+                    }
                 }
-                existenceProbability *= existenceGraphPtr_->edgeExistence(vertex->getParent(), vertex);
-                if (existenceProbability < threshold_)
-                {
-                    return true;
-                }
+                currVertex = parent;
             }
             return false;
         }
