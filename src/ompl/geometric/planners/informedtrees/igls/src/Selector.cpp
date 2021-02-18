@@ -15,7 +15,7 @@ namespace ompl
 
         void IGLS::Selector::setup(ExistenceGraph *const existenceGraphPtr)
         {
-            existenceGraphPtr_ = existenceGraphPtr_;
+            existenceGraphPtr_ = existenceGraphPtr;
         }
 
         IGLS::VertexPtrPair IGLS::Selector::edgeToEvaluate(const VertexPtrVector &reversePath) const
