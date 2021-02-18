@@ -7,7 +7,7 @@ namespace ompl
 {
     namespace geometric
     {
-        IGLS::ExistenceGraph::ExistenceGraph(const std::string &datasetPath, std::size_t edgeDiscretization,
+        IGLS::ExistenceGraph::ExistenceGraph(const std::string &datasetPath, double edgeDiscretization,
                                              double obstacleDensity)
           : datasetPath_(datasetPath)
           , edgeExistenceSparseDiscretization_{edgeDiscretization}
@@ -60,8 +60,6 @@ namespace ompl
             }
             std::vector<double> p;
             spaceInformation_->getStateSpace()->copyToReals(p, v->state());
-            std::cout << "Current position " << p[0] << " " << p[1] << std::endl;
-            // std::cin.get();
 
             VertexPtrVector neighbors;
             nn_->nearestK(v, k_, neighbors);
@@ -72,17 +70,10 @@ namespace ompl
             {
                 double weight = exp(-obstacleDensity_ * distance(v, neighbors[i]));
                 spaceInformation_->getStateSpace()->copyToReals(p, neighbors[i]->state());
-                if (p[0] == 0.5 && p[1] == 0.5)
-                {
-                    std::cout << "Nearest Neighbor " << p[0] << " " << p[1] << " " << distance(v, neighbors[i]) << " "
-                              << weight << std::endl;
-                    std::cin.get();
-                }
                 // TODO(avk): Maybe this should be a map and not a vector.
                 alpha += weight * numFree_[neighbors[i]->getId()];
                 beta += weight * numColl_[neighbors[i]->getId()];
             }
-            std::cout << "Alpha: " << alpha << " " << beta << std::endl;
             return alpha / (alpha + beta);
         }
 
@@ -95,20 +86,21 @@ namespace ompl
 
         double IGLS::ExistenceGraph::edgeExistence(const VertexPtr &u, const VertexPtr &v) const
         {
-            // TODO(avk): initialize this, e.g.
-            // disc = linspace(0, 1, edgeExistenceSparseDiscretization_);
-            // s = u + disc * (v - u);
-            VertexPtrVector sparseEdgeDiscretization;
-
-            // the OMPL NN seems not to permit vectorized nearest-neighbor
-            // queries, so we might need to do this one discretization at a time
+            const auto &source = u->state();
+            const auto &target = v->state();
+            double length = spaceInformation_->distance(source, target);
+            auto numberOfSteps = (unsigned int)std::ceil(length / edgeExistenceSparseDiscretization_);
             double edgeExistence = 1.0;
-            for (const auto &s : sparseEdgeDiscretization)
+            if (numberOfSteps > 1)
             {
-                // p(edge exists)
-                //   = p(all vertices along edge exist)
-                //   = min_v p(vertex exists)
-                edgeExistence = std::min(edgeExistence, vertexExistence(s));
+                ompl::base::State *test = spaceInformation_->allocState();
+                for (int j = 0; j <= numberOfSteps; ++j)
+                {
+                    double step = std::min(1.0, (double)j / (double)numberOfSteps);
+                    spaceInformation_->getStateSpace()->interpolate(source, target, step, test);
+                    edgeExistence = std::min(edgeExistence, stateExistence(test));
+                }
+                spaceInformation_->freeState(test);
             }
             return edgeExistence;
         }

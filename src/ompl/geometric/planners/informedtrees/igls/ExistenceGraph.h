@@ -14,7 +14,7 @@ namespace ompl
         public:
             ExistenceGraph(
                 // take a vector of vertices here
-                const std::string &datasetPath, std::size_t edgeDiscretization, double obstacleDensity);
+                const std::string &datasetPath, double edgeDiscretization, double obstacleDensity);
 
             /** \brief Computes the probability of a vertex being collision-free. */
             double vertexExistence(const VertexPtr &v) const;
@@ -59,7 +59,7 @@ namespace ompl
             std::size_t k_{1u};
 
             /** \brief Points to use for edge existence discretization. */
-            std::size_t edgeExistenceSparseDiscretization_{5u};
+            double edgeExistenceSparseDiscretization_;
 
             /** \brief Tunable parameter representing density of objects. */
             double obstacleDensity_{1u};
