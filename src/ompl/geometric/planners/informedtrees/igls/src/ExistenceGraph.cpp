@@ -44,12 +44,17 @@ namespace ompl
                 {
                     position.push_back(row[i]);
                 }
-                auto vertex = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, nullptr);
+                auto vertex = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, nullptr, nullptr);
                 spaceInformation_->getStateSpace()->copyFromReals(vertex->state(), position);
                 numFree_.push_back(row.at(dimension));
                 numColl_.push_back(row.back());
                 nn_->add(vertex);
             }
+        }
+
+        double IGLS::ExistenceGraph::distance(const VertexPtr &a, const VertexPtr &b) const
+        {
+            return spaceInformation_->distance(b->state(), a->state());
         }
 
         double IGLS::ExistenceGraph::vertexExistence(const VertexPtr &v) const
@@ -79,7 +84,7 @@ namespace ompl
 
         double IGLS::ExistenceGraph::stateExistence(const ompl::base::State *state) const
         {
-            auto vertex = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, nullptr);
+            auto vertex = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, nullptr, nullptr);
             spaceInformation_->copyState(vertex->state(), state);
             return vertexExistence(vertex);
         }
@@ -88,6 +93,12 @@ namespace ompl
         {
             const auto &source = u->state();
             const auto &target = v->state();
+            return edgeExistence(source, target);
+        }
+
+        double IGLS::ExistenceGraph::edgeExistence(const ompl::base::State *source,
+                                                   const ompl::base::State *target) const
+        {
             double length = spaceInformation_->distance(source, target);
             auto numberOfSteps = (unsigned int)std::ceil(length / edgeExistenceSparseDiscretization_);
             double edgeExistence = 1.0;

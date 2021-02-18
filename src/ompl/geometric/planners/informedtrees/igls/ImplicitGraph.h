@@ -36,7 +36,7 @@ namespace ompl
             void setup(const ompl::base::SpaceInformationPtr &spaceInformation,
                        const ompl::base::ProblemDefinitionPtr &problemDefinition, CostHelper *costHelper,
                        SearchQueue *searchQueue, const ompl::base::Planner *plannerPtr,
-                       ompl::base::PlannerInputStates &inputStates);
+                       ompl::base::PlannerInputStates &inputStates, ExistenceGraph *existenceGraphPtr);
 
             /** \brief Reset the graph to the state of construction. */
             void reset();
@@ -288,6 +288,8 @@ namespace ompl
              * clear(). */
             SearchQueue *queuePtr_{nullptr};
 
+            ExistenceGraph *existenceGraphPtr_{nullptr};
+
             /** \brief An instance of a random number generator. */
             ompl::RNG rng_;
 
@@ -385,12 +387,3 @@ namespace ompl
 }  // namespace ompl
 
 #endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_IMPLICITGRAPH_
-
-/** Notes:
- *
- * 1.JIT not supported for now.
- * 2.Unconnected samples are not dropped without consideration.
- * 3.Not supporting multiple start-goals.
- * 4.Not supporting approximate solutions, so closestVertex unnecessary.
- *
- * */

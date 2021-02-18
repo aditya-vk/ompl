@@ -40,7 +40,7 @@ namespace ompl
                                         const ompl::base::ProblemDefinitionPtr &problemDefinition,
                                         CostHelper *costHelper, SearchQueue *searchQueue,
                                         const ompl::base::Planner *plannerPtr,
-                                        ompl::base::PlannerInputStates &inputStates)
+                                        ompl::base::PlannerInputStates &inputStates, ExistenceGraph *existenceGraph)
         {
             // Store that I am setup so that any debug-level tests will pass. This requires assuring that this function
             // is ordered properly.
@@ -51,6 +51,7 @@ namespace ompl
             problemDefinition_ = problemDefinition;
             costHelpPtr_ = costHelper;
             queuePtr_ = searchQueue;
+            existenceGraphPtr_ = existenceGraph;
 
             // Configure the nearest-neighbour constructs.
             // Only allocate if they are empty (as they can be set to a specific version by a call to
@@ -279,7 +280,8 @@ namespace ompl
             const ompl::base::State *newGoal = inputStates.nextGoal(terminationCondition);
             if (static_cast<bool>(newGoal))
             {
-                goalVertex_ = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, approximationId_);
+                goalVertex_ = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, approximationId_,
+                                                       existenceGraphPtr_);
                 spaceInformation_->copyState(goalVertex_->state(), newGoal);
 
                 this->addToSamples(goalVertex_);
@@ -293,8 +295,8 @@ namespace ompl
             const ompl::base::State *newStart = inputStates.nextStart();
             if (static_cast<bool>(newStart))
             {
-                startVertex_ =
-                    std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, approximationId_, true);
+                startVertex_ = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, approximationId_,
+                                                        existenceGraphPtr_, true);
                 spaceInformation_->copyState(startVertex_->state(), newStart);
 
                 this->addToSamples(startVertex_);
@@ -624,8 +626,8 @@ namespace ompl
                 {
                     // Variable
                     // The new state:
-                    auto newState =
-                        std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_, approximationId_);
+                    auto newState = std::make_shared<Vertex>(spaceInformation_, costHelpPtr_, queuePtr_,
+                                                             approximationId_, existenceGraphPtr_);
 
                     // Sample in the interval [costSampled_, costReqd):
                     if (sampler_->sampleUniform(newState->state(), sampledCost_, requiredCost))

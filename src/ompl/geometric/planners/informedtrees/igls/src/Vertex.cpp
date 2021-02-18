@@ -62,7 +62,7 @@ namespace ompl
         // Public functions:
         IGLS::Vertex::Vertex(ompl::base::SpaceInformationPtr spaceInformation, const CostHelper *const costHelpPtr,
                              SearchQueue *const queuePtr, const std::shared_ptr<const unsigned int> &approximationId,
-                             bool root)
+                             ExistenceGraph *const existenceGraph, bool root)
           : id_(getIdGenerator().getNewId())
           , si_(std::move(spaceInformation))
           , costHelpPtr_(std::move(costHelpPtr))
@@ -73,6 +73,7 @@ namespace ompl
           , cost_(costHelpPtr_->infiniteCost())
           , currentSearchId_(queuePtr->getSearchId())
           , currentApproximationId_(approximationId)
+          , existenceGraphPtr_(existenceGraph)
         {
             PRINT_VERTEX_CHANGE
             if (this->isRoot())
@@ -644,8 +645,23 @@ namespace ompl
                 depth_ = (parentPtr_->getDepth() + 1u);
 
                 // I have a parent, so my lazy parameter is updated using my parent's.
-                incomingEdgeEvaluated ? (lazyDepth_ = parentPtr_->getLazyDepth()) :
-                                        (lazyDepth_ = parentPtr_->getLazyDepth() + 1u);
+                if (incomingEdgeEvaluated)
+                {
+                    lazyDepth_ = parentPtr_->getLazyDepth();
+                    if (existenceGraphPtr_)
+                    {
+                        existenceProbability_ = parentPtr_->getExistenceProbability();
+                    }
+                }
+                else
+                {
+                    lazyDepth_ = parentPtr_->getLazyDepth() + 1u;
+                    if (existenceGraphPtr_)
+                    {
+                        existenceProbability_ = parentPtr_->getExistenceProbability() *
+                                                existenceGraphPtr_->edgeExistence(parentPtr_->state(), this->state());
+                    }
+                }
             }
 
             // Am I updating my children?
@@ -681,10 +697,23 @@ namespace ompl
             }
             else
             {
-                // I have a parent, so my lazy parameter is updated using my parent's.
-                // Update lazy depth only if the edge has not been evaluated before.
-                incomingEdgeEvaluated ? (lazyDepth_ = parentPtr_->getLazyDepth()) :
-                                        (lazyDepth_ = parentPtr_->getLazyDepth() + 1u);
+                if (incomingEdgeEvaluated)
+                {
+                    lazyDepth_ = parentPtr_->getLazyDepth();
+                    if (existenceGraphPtr_)
+                    {
+                        existenceProbability_ = parentPtr_->getExistenceProbability();
+                    }
+                }
+                else
+                {
+                    lazyDepth_ = parentPtr_->getLazyDepth() + 1u;
+                    if (existenceGraphPtr_)
+                    {
+                        existenceProbability_ = parentPtr_->getExistenceProbability() *
+                                                existenceGraphPtr_->edgeExistence(parentPtr_->state(), this->state());
+                    }
+                }
             }
 
             // Now, iterate over my vector of children and tell each one to update its own damn cost:

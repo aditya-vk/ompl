@@ -22,6 +22,7 @@ namespace ompl
 
             /** \brief Computes the probability of an edge being collision-free. */
             double edgeExistence(const VertexPtr &u, const VertexPtr &v) const;
+            double edgeExistence(const ompl::base::State *source, const ompl::base::State *target) const;
 
             /** \brief Setup existence graph datastrcucture */
             void setup(const ompl::base::SpaceInformationPtr &spaceInformation, CostHelper *costHelper,
@@ -32,10 +33,7 @@ namespace ompl
             void loadDataset();
 
         private:
-            double distance(const VertexPtr &a, const VertexPtr &b) const
-            {
-                return spaceInformation_->distance(b->state(), a->state());
-            }
+            double distance(const VertexPtr &a, const VertexPtr &b) const;
 
             std::vector<std::vector<double>> readDataFromFile(std::string filename) const;
 

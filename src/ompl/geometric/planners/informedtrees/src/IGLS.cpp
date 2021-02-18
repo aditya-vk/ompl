@@ -187,8 +187,8 @@ namespace ompl
 
                 // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
                 // NN struct and check for starts/goals, respectively.
-                graphPtr_->setup(Planner::si_, Planner::pdef_, costHelpPtr_.get(), queuePtr_.get(), this,
-                                 Planner::pis_);
+                graphPtr_->setup(Planner::si_, Planner::pdef_, costHelpPtr_.get(), queuePtr_.get(), this, Planner::pis_,
+                                 existenceGraphPtr_.get());
                 graphPtr_->setPruning(isPruningEnabled_);
 
                 // Set the best and pruned costs to the proper objective-based values:
@@ -536,6 +536,7 @@ namespace ompl
             else
             {
                 edge.first->whitelistChild(edge.second);
+                edge.second->whitelistChild(edge.first);
                 edge.second->updateLazyParametersOnEdgeEvaluation(true);
             }
         }

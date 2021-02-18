@@ -10,6 +10,7 @@
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/geometric/planners/informedtrees/IGLS.h"
 #include "ompl/geometric/planners/informedtrees/igls/SearchQueue.h"
+#include "ompl/geometric/planners/informedtrees/igls/ExistenceGraph.h"
 
 namespace ompl
 {
@@ -40,7 +41,7 @@ namespace ompl
             /** \brief Construct a vertex using space information, and helpers to compute various costs. */
             Vertex(ompl::base::SpaceInformationPtr spaceInformation, const CostHelper *const costHelpPtr,
                    SearchQueue *const queuePtr, const std::shared_ptr<const unsigned int> &approximationId,
-                   bool root = false);
+                   ExistenceGraph *const existenceGraphPtr, bool root = false);
 
             /** \brief Destruct a vertex. */
             virtual ~Vertex();
@@ -236,6 +237,8 @@ namespace ompl
 
             /** \brief The search queue used by the algorithms. */
             SearchQueue *const queuePtr_;
+
+            ExistenceGraph *const existenceGraphPtr_;
 
             /** \brief The state itself. */
             ompl::base::State *state_;

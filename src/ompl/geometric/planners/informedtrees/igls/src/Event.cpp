@@ -63,25 +63,9 @@ namespace ompl
             {
                 return true;
             }
-
-            // Get the probability of the subpath.
-            VertexPtr currVertex = vertex;
-            double existenceProbability = 1.0;
-            while (currVertex->getParent())
+            if (vertex->getExistenceProbability() < threshold_)
             {
-                // If the edge is evaluated, continue to the next edge in the subpath.
-                const auto &parent = currVertex->getParent();
-                const bool evaluatedEdge =
-                    currVertex->hasWhitelistedChild(parent) || parent->hasWhitelistedChild(currVertex);
-                if (!evaluatedEdge)
-                {
-                    existenceProbability *= existenceGraphPtr_->edgeExistence(parent, currVertex);
-                    if (existenceProbability < threshold_)
-                    {
-                        return true;
-                    }
-                }
-                currVertex = parent;
+                return true;
             }
             return false;
         }
