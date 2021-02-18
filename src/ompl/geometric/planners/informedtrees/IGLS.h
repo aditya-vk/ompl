@@ -200,6 +200,7 @@ namespace ompl
             void useFailfastSelector();
 
             void printCompleteGraph() const;
+            void setSeed(int seed);
 
         protected:
             /** \brief Enable the cascading of rewirings. */
@@ -471,20 +472,9 @@ namespace ompl
             }
             std::chrono::time_point<std::chrono::system_clock> startTime_;
             double elapsedTime_{0};
+            int seed_{1};
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl
 
 #endif  // OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_BITSTAR_
-
-/** Notes:
- *
- * 1.Queue is always strictly ordered.
- *      [BIT* has a setStrictQueueOrdering of edges.]
- * 2. ABIT* settings are currently disabled.
- * 3. Rewiring of edges is never delayed.
- * 4. Disabling just in time sampling.
- * 5. Unconnected samples are not dropped without consideration.
- * 6. Only exact solutions are currently considered.
- *
- * */

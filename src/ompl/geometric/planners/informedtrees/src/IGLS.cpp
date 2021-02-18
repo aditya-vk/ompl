@@ -183,6 +183,7 @@ namespace ompl
                     selectorPtr_ = std::make_shared<Selector>();
                 }
                 selectorPtr_->setup(existenceGraphPtr_.get());
+                ompl::RNG::setSeed(seed_);
 
                 // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
                 // NN struct and check for starts/goals, respectively.
@@ -1403,6 +1404,7 @@ namespace ompl
 
             std::ofstream logfile;
             std::string datafile = "IGLS_Graph.txt";
+            std::remove(datafile.c_str());
             logfile.open(datafile, std::ios_base::app);
             logfile << "--------------------------------------" << std::endl;
             std::vector<double> source, target;
@@ -1425,10 +1427,13 @@ namespace ompl
             return plannerMetrics_;
         }
 
-        void IGLS::setExistenceGraph(const std::string &datasetPath, std::size_t edgeDiscretization,
-                                     double obstacleDensity)
+        void IGLS::setExistenceGraph(const std::string &datasetPath, double edgeDiscretization, double obstacleDensity)
         {
             existenceGraphPtr_ = std::make_shared<ExistenceGraph>(datasetPath, edgeDiscretization, obstacleDensity);
+        }
+        void IGLS::setSeed(int seed)
+        {
+            seed_ = seed;
         }
     }  // namespace geometric
 }  // namespace ompl
