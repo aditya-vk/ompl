@@ -107,8 +107,7 @@ namespace ompl
             void getPlannerData(base::PlannerData &data) const override;
             std::vector<std::vector<double>> getPlannerMetrics() const;
             std::vector<std::vector<double>> getShortestPaths() const;
-            void setExistenceGraph(const std::string &datasetPath, std::size_t edgeDiscretization,
-                                   double obstacleDensity);
+            void setExistenceGraph(const std::string &datasetPath, double edgeDiscretization, double obstacleDensity);
             std::shared_ptr<ExistenceGraph> getExistenceGraph() const
             {
                 return existenceGraphPtr_;
@@ -199,6 +198,8 @@ namespace ompl
             void useSubpathExistenceEvent(const double threshold);
             void useForwardSelector();
             void useFailfastSelector();
+
+            void printCompleteGraph() const;
 
         protected:
             /** \brief Enable the cascading of rewirings. */
@@ -438,7 +439,6 @@ namespace ompl
             unsigned int numVerticesRewired_{0u};
             void generateSamplesCostLog() const;
             void printGraph() const;
-            void printCompleteGraph() const;
 
             // ---
             // Parameters - Set defaults in construction/setup and do not reset in clear.
