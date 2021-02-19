@@ -869,6 +869,9 @@ namespace ompl
             }
 #endif  // IGLS_DEBUG
             ++numEdgeCollisionChecks_;
+            numStatesCollisionCheckedApproximate_ += static_cast<unsigned int>(
+                std::ceil(Planner::si_->getStateSpace()->distance(edge.first->state(), edge.second->state()) /
+                          Planner::si_->getStateSpace()->getLongestValidSegmentLength()));
             return Planner::si_->checkMotion(edge.first->state(), edge.second->state());
         }
 
@@ -992,9 +995,9 @@ namespace ompl
 
             // Save the cost and the total number of samples.
             std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
-            plannerMetrics_.push_back(std::vector<double>{(double)graphSize, bestCost_.value(),
-                                                          (double)numEdgeCollisionChecks_, (double)numVerticesRewired_,
-                                                          elapsedTime_});
+            plannerMetrics_.push_back(std::vector<double>{
+                (double)graphSize, bestCost_.value(), (double)numEdgeCollisionChecks_,
+                (double)numStatesCollisionCheckedApproximate_, (double)numVerticesRewired_, elapsedTime_});
 
             // Save the shortest path.
             std::vector<double> currentPosition, currentShortestPath;

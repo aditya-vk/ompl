@@ -473,6 +473,7 @@ namespace ompl
             std::chrono::time_point<std::chrono::system_clock> startTime_;
             double elapsedTime_{0};
             int seed_{1};
+            std::size_t numStatesCollisionCheckedApproximate_{0u};
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl
