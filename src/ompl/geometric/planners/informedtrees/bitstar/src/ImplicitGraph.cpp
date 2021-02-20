@@ -1186,7 +1186,7 @@ namespace ompl
 
             // Process all the vertices after resetting the best metric.
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
-            // Correction for beacon dispersion.
+            std::vector<int> validLandmarkIndices;
             for (int i = 0; i < landmarkSamples_.size(); ++i)
             {
                 // Ignore vertices that are outside the informed set.
@@ -1194,6 +1194,21 @@ namespace ompl
                 if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(landmark), solutionCost_))
                 {
                     continue;
+                }
+                validLandmarkIndices.push_back(i);
+            }
+
+            // Correction for beacon dispersion.
+            for (int i = 0; i < validLandmarkIndices.size(); ++i)
+            {
+                const auto &landmark = landmarkSamples_.at(validLandmarkIndices[i]);
+                if (validLandmarkIndices.size() > 2)
+                {
+                    if ((landmark->getId() == startVertices_.front()->getId()) ||
+                        (landmark->getId() == goalVertices_.front()->getId()))
+                    {
+                        continue;
+                    }
                 }
 
                 const double currentMetric = getMetric(i);
