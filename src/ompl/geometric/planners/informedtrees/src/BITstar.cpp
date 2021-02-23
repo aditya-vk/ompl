@@ -1220,10 +1220,10 @@ namespace ompl
             return graphPtr_->getUseKNearest();
         }
 
-        // LBIT* setters
-        std::vector<std::vector<double>> BITstar::getSamplesAndCost() const
+        // GuILD setters
+        std::vector<std::vector<double>> BITstar::getPlannerMetrics() const
         {
-            return graphPtr_->getSamplesAndCost();
+            return graphPtr_->getPlannerMetrics();
         }
 
         void BITstar::setInformedProbability(double p)
@@ -1250,10 +1250,11 @@ namespace ompl
             return landmarks;
         }
 
-        void BITstar::enableLoggingGraphEveryIteration(bool enable)
+        void BITstar::enableLoggingGraphEveryIteration(bool enable, std::string location)
         {
             enableLoggingGraphEveryIteration_ = enable;
-            graphPtr_->enableLoggingGraphEveryIteration(enable);
+            plannerIterationsLocation_ = location;
+            graphPtr_->enableLoggingGraphEveryIteration(enable, location);
         }
 
         void BITstar::setLandmarkGraph(const std::size_t size, const std::vector<int> primes)
@@ -1267,9 +1268,9 @@ namespace ompl
             {
                 metricType_ = MetricType::Bandit;
             }
-            else if (type == "guided")
+            else if (type == "weighted")
             {
-                metricType_ = MetricType::Guided;
+                metricType_ = MetricType::Weighted;
             }
             else if (type == "greedy")
             {
@@ -1287,9 +1288,9 @@ namespace ompl
             return metricType_;
         }
 
-        void BITstar::setGuidedAlpha(const double alpha)
+        void BITstar::setWeightedAlpha(const double alpha)
         {
-            graphPtr_->setGuidedAlpha(alpha);
+            graphPtr_->setWeightedAlpha(alpha);
         }
 
         void BITstar::setStrictQueueOrdering(bool /* beStrict */)

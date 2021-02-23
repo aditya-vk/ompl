@@ -394,7 +394,7 @@ namespace ompl
             samples_->list(samples);
             std::size_t graphSize = samples.size();
             auto current = std::vector<double>{(double)graphSize, solutionCost_.value(), numEdgeCollisionChecks_};
-            samplesAndCost_.push_back(current);
+            plannerMetrics_.push_back(current);
         }
 
         void BITstar::ImplicitGraph::updateStartAndGoalStates(
@@ -1142,29 +1142,54 @@ namespace ompl
             if (!hasExactSolution_ || rng_.uniform01() < informedProbability_)
             {
                 bestSubgoalVertex_ = startVertices_.front();
+                bestSubgoalIndex_ = 0;
+                bestSubgoalVertex_->incrementBeaconCount();
                 return;
             }
 
             // Process all the vertices after resetting the best metric.
             metricForBestSubgoalVertex_ = std::numeric_limits<double>::min();
-            for (const auto &vertex : landmarkSamples_)
+
+            // Get the valid landmark indices.
+            std::vector<int> validLandmarkIndices;
+            for (int i = 0; i < landmarkSamples_.size(); ++i)
             {
                 // Ignore vertices that are outside the informed set.
-                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(vertex), solutionCost_))
+                const auto &landmark = landmarkSamples_.at(i);
+                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(landmark), solutionCost_))
                 {
                     continue;
                 }
+                validLandmarkIndices.push_back(i);
+            }
 
-                const double currentMetric = getMetric(vertex);
+            // Conditionally ignore the start/goal.
+            for (int i = 0; i < validLandmarkIndices.size(); ++i)
+            {
+                const int landmarkIndex = validLandmarkIndices.at(i);
+                const auto &landmark = landmarkSamples_.at(landmarkIndex);
+                if (validLandmarkIndices.size() > 2)
+                {
+                    if ((landmark->getId() == startVertices_.front()->getId()) ||
+                        (landmark->getId() == goalVertices_.front()->getId()))
+                    {
+                        continue;
+                    }
+                }
+
+                const double currentMetric = getMetric(landmark);
                 if (currentMetric > metricForBestSubgoalVertex_)
                 {
-                    bestSubgoalVertex_ = vertex;
+                    bestSubgoalIndex_ = landmarkIndex;
+                    bestSubgoalVertex_ = landmark;
                     metricForBestSubgoalVertex_ = currentMetric;
                 }
             }
+            // Increment the selection increment.
+            bestSubgoalVertex_->incrementBeaconCount();
         }
 
-        void BITstar::ImplicitGraph::guidedSubgoal()
+        void BITstar::ImplicitGraph::weightedSubgoal()
         {
             auto getMetric = [&](int index) {
                 const auto &vertex = landmarkSamples_.at(index);
@@ -1174,13 +1199,14 @@ namespace ompl
                 double normalizedPromise = promise / solutionCost_.value();
                 double normalizedBeaconDispersion =
                     beaconDispersions_.at(index) / spaceInformation_->getStateSpace()->getMaximumExtent();
-                // std::cout << index << ": " << promise << " " << normalizedBeaconDispersion << std::endl;
-                return guidedAlpha_ * normalizedPromise + (1 - guidedAlpha_) * normalizedBeaconDispersion;
+                return weightedAlpha_ * normalizedPromise + (1 - weightedAlpha_) * normalizedBeaconDispersion;
             };
 
             if (!hasExactSolution_ || rng_.uniform01() < informedProbability_)
             {
                 bestSubgoalVertex_ = startVertices_.front();
+                bestSubgoalIndex_ = 0;
+                bestSubgoalVertex_->incrementBeaconCount();
                 return;
             }
 
@@ -1201,7 +1227,8 @@ namespace ompl
             // Correction for beacon dispersion.
             for (int i = 0; i < validLandmarkIndices.size(); ++i)
             {
-                const auto &landmark = landmarkSamples_.at(validLandmarkIndices[i]);
+                const int landmarkIndex = validLandmarkIndices.at(i);
+                const auto &landmark = landmarkSamples_.at(landmarkIndex);
                 if (validLandmarkIndices.size() > 2)
                 {
                     if ((landmark->getId() == startVertices_.front()->getId()) ||
@@ -1211,18 +1238,16 @@ namespace ompl
                     }
                 }
 
-                const double currentMetric = getMetric(i);
+                const double currentMetric = getMetric(landmarkIndex);
                 if (currentMetric > metricForBestSubgoalVertex_)
                 {
-                    bestSubgoalIndex_ = i;
+                    bestSubgoalIndex_ = landmarkIndex;
                     bestSubgoalVertex_ = landmark;
                     metricForBestSubgoalVertex_ = currentMetric;
                 }
             }
             // Increment the selection increment.
             bestSubgoalVertex_->incrementBeaconCount();
-            // std::cout << "Choosing " << bestSubgoalIndex_ << " " << metricForBestSubgoalVertex_ << std::endl;
-            // std::cin.get();
 
             // Update the chosen vertex dispersion.
             updateBeaconDispersion();
@@ -1230,9 +1255,11 @@ namespace ompl
 
         void BITstar::ImplicitGraph::banditSubgoal()
         {
-            if (!hasExactSolution_)
+            if (!hasExactSolution_ || rng_.uniform01() < informedProbability_)
             {
-                bestSubgoalVertex_ = nullptr;
+                bestSubgoalVertex_ = startVertices_.front();
+                bestSubgoalIndex_ = 0;
+                bestSubgoalVertex_->incrementBeaconCount();
                 return;
             }
 
@@ -1247,7 +1274,8 @@ namespace ompl
 
             // Select a bandit using the underlying selection function.
             std::vector<int> validLandmarkIndices;
-            for (int i = 0; i < landmarkSamples_.size(); ++i)
+            bool breakWithoutStartGoal = false;
+            for (int i = landmarkSamples_.size() - 1; i >= 0; --i)
             {
                 // Ignore vertices that are outside the informed set.
                 const auto &vertex = landmarkSamples_.at(i);
@@ -1256,10 +1284,17 @@ namespace ompl
                     continue;
                 }
                 validLandmarkIndices.push_back(i);
+                if (i > 1)
+                {
+                    breakWithoutStartGoal = true;
+                }
+                if (breakWithoutStartGoal && i == 1)
+                {
+                    break;
+                }
             }
             assert(!validLandmarkIndices.empty());
             bestSubgoalIndex_ = banditSelectVertexFunc_(validLandmarkIndices);
-            // std::cout << "Chose " << bestSubgoalIndex_ << std::endl;
             bestSubgoalVertex_ = landmarkSamples_.at(bestSubgoalIndex_);
             bestSubgoalVertex_->incrementBeaconCount();
             updateBeaconDispersion();
@@ -1267,7 +1302,9 @@ namespace ompl
 
         void BITstar::ImplicitGraph::informedSubgoal()
         {
-            bestSubgoalVertex_ = nullptr;
+            bestSubgoalVertex_ = startVertices_.front();
+            bestSubgoalIndex_ = 0;
+            bestSubgoalVertex_->incrementBeaconCount();
         }
 
         void BITstar::ImplicitGraph::updateBeaconDispersion()
@@ -1310,9 +1347,9 @@ namespace ompl
             {
                 return greedySubgoal();
             }
-            else if (metricType_ == MetricType::Guided)
+            else if (metricType_ == MetricType::Weighted)
             {
-                return guidedSubgoal();
+                return weightedSubgoal();
             }
             else if (metricType_ == MetricType::Bandit)
             {
@@ -1755,7 +1792,8 @@ namespace ompl
 
             if (hasExactSolution_)
             {
-                std::string focusDataFile = "focus_" + std::to_string(newSamplesIteration_) + ".txt";
+                std::string focusDataFile =
+                    plannerIterationsLocation_ + "focus_" + std::to_string(newSamplesIteration_) + ".txt";
                 logfile.open(focusDataFile, std::ios_base::app);
 
                 spaceInformation_->getStateSpace()->copyToReals(position, startVertices_.front()->state());
@@ -1790,7 +1828,8 @@ namespace ompl
             }
 
             // Save the graph.
-            std::string samplesDataFile = "samples_" + std::to_string(newSamplesIteration_) + ".txt";
+            std::string samplesDataFile =
+                plannerIterationsLocation_ + "samples_" + std::to_string(newSamplesIteration_) + ".txt";
             logfile.open(samplesDataFile, std::ios_base::app);
 
             VertexPtrVector samples;
@@ -1814,7 +1853,8 @@ namespace ompl
             logfile.close();
 
             // Save the landmark attributes.
-            std::string landmarksDataFile = "landmarks_" + std::to_string(newSamplesIteration_) + ".txt";
+            std::string landmarksDataFile =
+                plannerIterationsLocation_ + "landmarks_" + std::to_string(newSamplesIteration_) + ".txt";
             logfile.open(landmarksDataFile, std::ios_base::app);
             for (const auto &sample : landmarkSamples_)
             {
@@ -1834,7 +1874,8 @@ namespace ompl
             }
             logfile.close();
 
-            std::string verticesDataFile = "vertices_" + std::to_string(newSamplesIteration_) + ".txt";
+            std::string verticesDataFile =
+                plannerIterationsLocation_ + "vertices_" + std::to_string(newSamplesIteration_) + ".txt";
             logfile.open(verticesDataFile, std::ios_base::app);
             for (const auto &vertex : samples)
             {
@@ -1862,7 +1903,8 @@ namespace ompl
             // Save the path only if one exists.
             if (hasExactSolution_)
             {
-                std::string pathDataFile = "path_" + std::to_string(newSamplesIteration_) + ".txt";
+                std::string pathDataFile =
+                    plannerIterationsLocation_ + "path_" + std::to_string(newSamplesIteration_) + ".txt";
                 logfile.open(pathDataFile, std::ios_base::app);
                 VertexConstPtr curVertex = goalVertices_.front();
 
@@ -1891,7 +1933,7 @@ namespace ompl
             // Save the landmark positions.
             std::vector<double> position;
             std::ofstream logfile;
-            std::string landmarksDataFile = "landmarks.txt";
+            std::string landmarksDataFile = plannerIterationsLocation_ + "landmarks.txt";
             logfile.open(landmarksDataFile, std::ios_base::app);
 
             for (const auto &sample : landmarkSamples_)

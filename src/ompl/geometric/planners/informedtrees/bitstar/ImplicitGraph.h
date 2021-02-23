@@ -286,22 +286,23 @@ namespace ompl
                 samples_->list(samples);
                 return samples.size();
             }
-            void enableLoggingGraphEveryIteration(bool enable)
+            void enableLoggingGraphEveryIteration(bool enable, std::string location)
             {
                 enableLoggingGraphEveryIteration_ = enable;
+                plannerIterationsLocation_ = location;
             }
             void setMetricType(const MetricType type)
             {
                 metricType_ = type;
             }
-            void setGuidedAlpha(const double alpha)
+            void setWeightedAlpha(const double alpha)
             {
-                assert(guidedAlpha_ >= 0.0 && guidedAlpha_ <= 1.0);
-                guidedAlpha_ = alpha;
+                assert(alpha >= 0.0 && alpha <= 1.0);
+                weightedAlpha_ = alpha;
             }
-            std::vector<std::vector<double>> getSamplesAndCost() const
+            std::vector<std::vector<double>> getPlannerMetrics() const
             {
-                return samplesAndCost_;
+                return plannerMetrics_;
             }
             void incrementEdgeCollisionChecks()
             {
@@ -345,7 +346,7 @@ namespace ompl
              * from start to this vertex, and this vertex to the goal. */
             void findBestSubgoalVertex();
             void greedySubgoal();
-            void guidedSubgoal();
+            void weightedSubgoal();
             void banditSubgoal();
             void informedSubgoal();
             void updateBeaconDispersion();
@@ -557,16 +558,17 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             // LBIT* parameters
-            std::vector<std::vector<double>> samplesAndCost_;
+            std::vector<std::vector<double>> plannerMetrics_;
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
             MetricType metricType_{MetricType::Informed};
 
-            /** \brief Alpha to use for guided metric type. */
-            double guidedAlpha_{1.0};
+            /** \brief Alpha to use for weighted selector. */
+            double weightedAlpha_{1.0};
 
             /** \brief Whether to stop the planner as soon as the path changes. */
             bool enableLoggingGraphEveryIteration_{false};
+            std::string plannerIterationsLocation_;
             int numEdgeCollisionChecks_{0};
             double informedProbability_{0};
             std::size_t landmarkGraphSize_{100u};

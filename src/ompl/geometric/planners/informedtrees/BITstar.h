@@ -55,7 +55,7 @@ namespace ompl
         enum class MetricType
         {
             Greedy,
-            Guided,
+            Weighted,
             Bandit,
             Informed
         };
@@ -307,7 +307,7 @@ namespace ompl
             // LBIT* settings
             // --
             /** \brief Generate logs saving samples generated in each iteration. */
-            void enableLoggingGraphEveryIteration(bool enable);
+            void enableLoggingGraphEveryIteration(bool enable, std::string location);
 
             /** \brief Set the landmark graph size. */
             void setLandmarkGraph(const std::size_t size, const std::vector<int> primes);
@@ -319,10 +319,10 @@ namespace ompl
             MetricType getMetricType() const;
 
             /** \brief Set alpha for guided metric type */
-            void setGuidedAlpha(const double alpha);
+            void setWeightedAlpha(const double alpha);
 
             /** \brief Get the samplesAndCost data from implicit graph */
-            std::vector<std::vector<double>> getSamplesAndCost() const;
+            std::vector<std::vector<double>> getPlannerMetrics() const;
 
             /** \brief Set informed probability */
             void setInformedProbability(double probability);
@@ -608,6 +608,7 @@ namespace ompl
             // LBIT* parameters
             /** \brief Whether to stop the planner as soon as the path changes. */
             bool enableLoggingGraphEveryIteration_{false};
+            std::string plannerIterationsLocation_;
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
             MetricType metricType_;
