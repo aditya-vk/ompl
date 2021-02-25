@@ -306,6 +306,7 @@ namespace ompl
 
         ompl::base::PlannerStatus BITstar::solve(const ompl::base::PlannerTerminationCondition &ptc)
         {
+            startTimer();
             // Check that Planner::setup_ is true, if not call this->setup()
             Planner::checkValidity();
 
@@ -966,6 +967,12 @@ namespace ompl
                 queuePtr_->registerSolutionCost(bestCost_);
                 graphPtr_->registerSolutionCost(bestCost_);
 
+                // Save the cost and the total number of samples.
+                recordTimer();
+                std::size_t graphSize = graphPtr_->getCopyOfSamples().size();
+                plannerMetrics_.push_back(std::vector<double>{(double)graphSize, bestCost_.value(),
+                                                              (double)numEdgeCollisionChecks_, elapsedTime_});
+
                 // Stop the solution loop if enabled:
                 stopLoop_ = stopOnSolutionChange_;
 
@@ -1456,6 +1463,11 @@ namespace ompl
                 }
             }
             logfile.close();
+        }
+
+        std::vector<std::vector<double>> BITstar::getPlannerMetrics() const
+        {
+            return plannerMetrics_;
         }
 
     }  // namespace geometric

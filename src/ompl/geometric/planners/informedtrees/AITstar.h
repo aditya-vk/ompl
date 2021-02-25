@@ -108,6 +108,7 @@ namespace ompl
 
             /** \brief Get the planner data. */
             void getPlannerData(base::PlannerData &data) const override;
+            std::vector<std::vector<double>> getPlannerMetrics() const;
 
             /** \brief Set the batch size. */
             void setBatchSize(std::size_t batchSize);
@@ -309,6 +310,19 @@ namespace ompl
 
             /** \brief The number of edge collision checks performed. */
             std::size_t numEdgeCollisionChecks_{0u};
+            std::vector<std::vector<double>> plannerMetrics_;
+            void startTimer()
+            {
+                startTime_ = std::chrono::system_clock::now();
+            }
+            void recordTimer()
+            {
+                std::chrono::time_point<std::chrono::system_clock> endTime(std::chrono::system_clock::now());
+                std::chrono::duration<double> totalTime{endTime - startTime_};
+                elapsedTime_ = totalTime.count();
+            }
+            std::chrono::time_point<std::chrono::system_clock> startTime_;
+            double elapsedTime_{0};
         };
     }  // namespace geometric
 }  // namespace ompl

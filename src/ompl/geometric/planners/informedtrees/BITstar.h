@@ -41,6 +41,7 @@
 #include <utility>
 #include <vector>
 #include <fstream>
+#include <chrono>
 
 #include "ompl/base/Planner.h"
 #include "ompl/base/samplers/InformedStateSampler.h"
@@ -166,6 +167,7 @@ namespace ompl
 
             /** \brief Get results. */
             void getPlannerData(base::PlannerData &data) const override;
+            std::vector<std::vector<double>> getPlannerMetrics() const;
 
             // ---
             // Debugging info.
@@ -559,6 +561,20 @@ namespace ompl
             bool stopOnSolutionChange_{false};
             void generateSamplesCostLog() const;
             void printCompleteGraph() const;
+            // Logger settings:
+            std::vector<std::vector<double>> plannerMetrics_;
+            void startTimer()
+            {
+                startTime_ = std::chrono::system_clock::now();
+            }
+            void recordTimer()
+            {
+                std::chrono::time_point<std::chrono::system_clock> endTime(std::chrono::system_clock::now());
+                std::chrono::duration<double> totalTime{endTime - startTime_};
+                elapsedTime_ = totalTime.count();
+            }
+            std::chrono::time_point<std::chrono::system_clock> startTime_;
+            double elapsedTime_{0};
         };  // class BITstar
     }       // namespace geometric
 }  // namespace ompl

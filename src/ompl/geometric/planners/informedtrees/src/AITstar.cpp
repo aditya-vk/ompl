@@ -170,6 +170,7 @@ namespace ompl
 
         ompl::base::PlannerStatus AITstar::solve(const ompl::base::PlannerTerminationCondition &terminationCondition)
         {
+            startTimer();
             // The planner status to return.
             auto status = ompl::base::PlannerStatus::StatusType::UNKNOWN;
 
@@ -1359,6 +1360,11 @@ namespace ompl
 
                     // Let the user know about the new solution.
                     informAboutNewSolution();
+
+                    recordTimer();
+                    std::size_t graphSize = graph_.getNumberOfSampledStates();
+                    plannerMetrics_.push_back(std::vector<double>{(double)graphSize, solutionCost_.value(),
+                                                                  (double)numEdgeCollisionChecks_, elapsedTime_});
                 }
             }
         }
@@ -1484,6 +1490,11 @@ namespace ompl
                     child->resetReverseQueuePointer();
                 }
             }
+        }
+
+        std::vector<std::vector<double>> AITstar::getPlannerMetrics() const
+        {
+            return plannerMetrics_;
         }
 
     }  // namespace geometric
