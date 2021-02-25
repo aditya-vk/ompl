@@ -4,6 +4,9 @@
 #define OMPL_GEOMETRIC_PLANNERS_INFORMEDTREES_IGLS_EVENT_
 
 #include "ompl/geometric/planners/informedtrees/IGLS.h"
+#include "ompl/geometric/planners/informedtrees/igls/ImplicitGraph.h"
+#include "ompl/geometric/planners/informedtrees/igls/Vertex.h"
+#include "ompl/geometric/planners/informedtrees/igls/ExistenceGraph.h"
 
 namespace ompl
 {
@@ -25,7 +28,10 @@ namespace ompl
 
             /** \brief Returns true if the vertex triggers the event.
              * Default behavior implements LazySP i.e. triggers when vertex is goal. */
-            virtual bool isTriggered(const VertexPtr &vertex) const;
+            virtual inline bool isTriggered(const VertexPtr &vertex) const
+            {
+                return (vertex->getId() == graphPtr_->getGoalVertex()->getId());
+            }
 
         protected:
             ImplicitGraph *graphPtr_;
@@ -40,7 +46,22 @@ namespace ompl
 
             /** \brief Returns true if the vertex triggers the event.
              * Triggers when the lazy depth of the vertex in the tree is \c depth. */
-            bool isTriggered(const VertexPtr &vertex) const override;
+            inline bool isTriggered(const VertexPtr &vertex) const override
+            {
+                if (vertex->isRoot())
+                {
+                    return false;
+                }
+                if (vertex->getId() == graphPtr_->getGoalVertex()->getId())
+                {
+                    return true;
+                }
+                if (vertex->getLazyDepth() == depth_)
+                {
+                    return true;
+                }
+                return false;
+            }
 
         private:
             /** \brief Denotes the depth at which a vertex should trigger. */
@@ -55,7 +76,22 @@ namespace ompl
 
             /** \brief Returns true if the vertex triggers the event.
              * Triggers when the lazy subpath to vertex has existence probability less than \c threshold. */
-            bool isTriggered(const VertexPtr &vertex) const override;
+            inline bool isTriggered(const VertexPtr &vertex) const override
+            {
+                if (vertex->isRoot())
+                {
+                    return false;
+                }
+                if (vertex->getId() == graphPtr_->getGoalVertex()->getId())
+                {
+                    return true;
+                }
+                if (vertex->getExistenceProbability() < threshold_)
+                {
+                    return true;
+                }
+                return false;
+            }
 
         private:
             /** \brief Denotes the threshold below which the the event triggers. */
