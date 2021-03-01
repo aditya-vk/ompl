@@ -594,7 +594,8 @@ namespace ompl
             // Keep track of the index of the best subgoal index.
             int bestSubgoalIndex_{-1};
             double bestSubgoalSampledVolume_;
-
+            /** Offset for the landmarks. **/
+            int landmarkOffset_{0};
         };  // class ImplicitGraph
     }       // namespace geometric
 }  // namespace ompl

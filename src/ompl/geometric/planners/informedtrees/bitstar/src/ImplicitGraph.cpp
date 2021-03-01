@@ -131,7 +131,6 @@ namespace ompl
             {
                 haltonSampler_ = std::make_shared<HaltonSampler>(landmarkPrimes_, spaceInformation_);
             }
-            this->setupLandmarkGraph();
 
             // Get the measure of the problem
             approximationMeasure_ = spaceInformation_->getSpaceMeasure();
@@ -379,15 +378,19 @@ namespace ompl
             hasSolutionIteration_++;
             ASSERT_SETUP
 
-            // We have a solution!
-            hasExactSolution_ = true;
-
             // Store it's cost as the maximum we'd ever want to sample
             solutionCost_ = solutionCost;
 
             // Clear the approximate solution
             closestDistanceToGoal_ = std::numeric_limits<double>::infinity();
             closestVertexToGoal_.reset();
+
+            // If this is our first solution, sample beacons and register solution.
+            if (!hasExactSolution_)
+            {
+                this->setupLandmarkGraph();
+                hasExactSolution_ = true;
+            }
 
             // Save the cost and the total number of samples.
             VertexPtrVector samples;
@@ -1049,6 +1052,8 @@ namespace ompl
 
         void BITstar::ImplicitGraph::setupLandmarkGraph()
         {
+            landmarkOffset_ = this->getCopyOfSamples().size();
+
             // Always have start and goal in the landmark samples.
             landmarkSamples_.reserve(landmarkGraphSize_ + 2);
             landmarkSamples_.push_back(startVertices_.front());
@@ -1069,6 +1074,11 @@ namespace ompl
                 // TODO(avk): Write a Halton Sampler class.
                 haltonSampler_->sample(index, newState->state());
                 index++;
+
+                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->lowerBoundHeuristicVertex(newState), solutionCost_))
+                {
+                    continue;
+                }
 
                 // If the state is collision free, add it to the set of free states.
                 // Treating the halton samples same as uniform samples.
@@ -1297,7 +1307,8 @@ namespace ompl
             bestSubgoalIndex_ = banditSelectVertexFunc_(validLandmarkIndices);
             bestSubgoalVertex_ = landmarkSamples_.at(bestSubgoalIndex_);
             bestSubgoalVertex_->incrementBeaconCount();
-            updateBeaconDispersion();
+            // TODO(avk): Check this later.
+            // updateBeaconDispersion();
         }
 
         void BITstar::ImplicitGraph::informedSubgoal()

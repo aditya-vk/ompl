@@ -612,7 +612,6 @@ namespace ompl
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
             MetricType metricType_;
-
         };  // class BITstar
 
     }  // namespace geometric
