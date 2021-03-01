@@ -183,7 +183,7 @@ namespace ompl
                     selectorPtr_ = std::make_shared<Selector>();
                 }
                 selectorPtr_->setup(existenceGraphPtr_.get());
-                ompl::RNG::setSeed(seed_);
+                // ompl::RNG::setSeed(seed_);
 
                 // Setup the graph, it does not hold a copy of this or Planner::pis_, but uses them to create a
                 // NN struct and check for starts/goals, respectively.

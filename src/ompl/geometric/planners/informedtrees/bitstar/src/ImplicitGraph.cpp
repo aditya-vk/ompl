@@ -963,10 +963,7 @@ namespace ompl
                 // Actually generate the new samples
                 VertexPtrVector newStates{};
                 newStates.reserve(numRequiredSamples);
-                for (std::size_t tries = 0u;
-                     tries < averageNumOfAllowedFailedAttemptsWhenSampling_ * numRequiredSamples &&
-                     numSamples_ < numRequiredSamples;
-                     ++tries)
+                for (std::size_t tries = 0u; numSamples_ < numRequiredSamples; ++tries)
                 {
                     // Variable
                     // The new state:
