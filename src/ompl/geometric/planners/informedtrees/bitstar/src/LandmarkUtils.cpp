@@ -1,5 +1,6 @@
 #include "ompl/geometric/planners/informedtrees/bitstar/LandmarkUtils.h"
 #include "ompl/base/spaces/RealVectorStateSpace.h"
+#include "ompl/base/spaces/SE2StateSpace.h"
 
 namespace ompl
 {

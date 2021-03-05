@@ -1266,34 +1266,47 @@ namespace ompl
 
             // Update the vertex.
             double increment = 0;
-            if (bestSubgoalIndex_ != -1)
+            // if (bestSubgoalIndex_ != -1)
+            // {
+            //     // TODO(avk): this is not correct, we want to penalize in absolute sense.
+            //     increment = beaconDispersions_.at(bestSubgoalIndex_) / beaconDispersions_.front();
+            // }
+            if (bestSubgoalIndex_ > 1)
             {
-                // TODO(avk): this is not correct, we want to penalize in absolute sense.
-                increment = beaconDispersions_.at(bestSubgoalIndex_) / beaconDispersions_.front();
+                increment = 1;
             }
             banditUpdateVertexFunc_(solutionCost_.value(), increment);
 
-            // Select a bandit using the underlying selection function.
-            std::vector<int> validLandmarkIndices;
-            bool breakWithoutStartGoal = false;
-            for (int i = landmarkSamples_.size() - 1; i >= 0; --i)
+            // Get the valid landmark indices.
+            std::vector<int> usefulLandmarkIndices;
+            for (int i = 0; i < landmarkSamples_.size(); ++i)
             {
                 // Ignore vertices that are outside the informed set.
-                const auto &vertex = landmarkSamples_.at(i);
-                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(vertex), solutionCost_))
+                const auto &landmark = landmarkSamples_.at(i);
+                if (costHelpPtr_->isCostWorseThan(costHelpPtr_->currentHeuristicVertex(landmark), solutionCost_))
                 {
                     continue;
                 }
-                validLandmarkIndices.push_back(i);
-                if (i > 1)
-                {
-                    breakWithoutStartGoal = true;
-                }
-                if (breakWithoutStartGoal && i == 1)
-                {
-                    break;
-                }
+                usefulLandmarkIndices.push_back(i);
             }
+
+            // Conditionally ignore the start/goal.
+            std::vector<int> validLandmarkIndices;
+            for (int i = 0; i < usefulLandmarkIndices.size(); ++i)
+            {
+                const int landmarkIndex = usefulLandmarkIndices.at(i);
+                const auto &landmark = landmarkSamples_.at(landmarkIndex);
+                if (usefulLandmarkIndices.size() > 2)
+                {
+                    if ((landmark->getId() == startVertices_.front()->getId()) ||
+                        (landmark->getId() == goalVertices_.front()->getId()))
+                    {
+                        continue;
+                    }
+                }
+                validLandmarkIndices.push_back(landmarkIndex);
+            }
+
             assert(!validLandmarkIndices.empty());
             bestSubgoalIndex_ = banditSelectVertexFunc_(validLandmarkIndices);
             bestSubgoalVertex_ = landmarkSamples_.at(bestSubgoalIndex_);
