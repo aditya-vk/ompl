@@ -308,6 +308,7 @@ namespace ompl
         {
             // Check that Planner::setup_ is true, if not call this->setup()
             Planner::checkValidity();
+            startTimer();
 
             // Assert setup succeeded
             if (!Planner::setup_)
@@ -960,6 +961,7 @@ namespace ompl
             {
                 // Mark that we have a solution
                 hasExactSolution_ = true;
+                recordTimer();
 
                 // Store the current goal
                 curGoalVertex_ = newBestGoal;
@@ -974,6 +976,11 @@ namespace ompl
                 queuePtr_->registerSolutionCost(bestCost_);
                 graphPtr_->registerSolutionCost(bestCost_);
                 this->publishSolution();
+
+                // Save the planner metrics.
+                auto current =
+                    std::vector<double>{(double)graphPtr_->numStatesGenerated(), bestCost_.value(), elapsedTime_};
+                plannerMetrics_.push_back(current);
 
                 // Stop the solution loop if enabled:
                 stopLoop_ = stopOnSolutionChange_;
@@ -1223,7 +1230,7 @@ namespace ompl
         // GuILD setters
         std::vector<std::vector<double>> BITstar::getPlannerMetrics() const
         {
-            return graphPtr_->getPlannerMetrics();
+            return plannerMetrics_;
         }
 
         void BITstar::setInformedProbability(double p)

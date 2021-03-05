@@ -300,10 +300,6 @@ namespace ompl
                 assert(alpha >= 0.0 && alpha <= 1.0);
                 weightedAlpha_ = alpha;
             }
-            std::vector<std::vector<double>> getPlannerMetrics() const
-            {
-                return plannerMetrics_;
-            }
             void incrementEdgeCollisionChecks()
             {
                 numEdgeCollisionChecks_++;
@@ -558,7 +554,6 @@ namespace ompl
 
             ///////////////////////////////////////////////////////////////////
             // LBIT* parameters
-            std::vector<std::vector<double>> plannerMetrics_;
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
             MetricType metricType_{MetricType::Informed};

@@ -391,13 +391,6 @@ namespace ompl
                 this->setupLandmarkGraph();
                 hasExactSolution_ = true;
             }
-
-            // Save the cost and the total number of samples.
-            VertexPtrVector samples;
-            samples_->list(samples);
-            std::size_t graphSize = samples.size();
-            auto current = std::vector<double>{(double)graphSize, solutionCost_.value(), numEdgeCollisionChecks_};
-            plannerMetrics_.push_back(current);
         }
 
         void BITstar::ImplicitGraph::updateStartAndGoalStates(
@@ -983,6 +976,7 @@ namespace ompl
                 }
 
                 // Update the best subgoal vertex before sampling new states.
+                std::cout << "Sampled " << getCopyOfSamples().size() << " states" << std::endl;
                 findBestSubgoalVertex();
 
                 // Log the current graph and the search tree.
@@ -995,10 +989,7 @@ namespace ompl
                 // Actually generate the new samples
                 VertexPtrVector newStates{};
                 newStates.reserve(numRequiredSamples);
-                for (std::size_t tries = 0u;
-                     tries < averageNumOfAllowedFailedAttemptsWhenSampling_ * numRequiredSamples &&
-                     numSamples_ < numRequiredSamples;
-                     ++tries)
+                for (std::size_t tries = 0u; numSamples_ < numRequiredSamples; ++tries)
                 {
                     // Variable
                     // The new state:

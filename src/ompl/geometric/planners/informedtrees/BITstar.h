@@ -40,6 +40,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <chrono>
 
 #include "ompl/base/Planner.h"
 #include "ompl/base/samplers/InformedStateSampler.h"
@@ -612,6 +613,19 @@ namespace ompl
 
             /** \brief The type of metric to use for figuring out the best subgoal vertex. */
             MetricType metricType_;
+            std::vector<std::vector<double>> plannerMetrics_;
+            void startTimer()
+            {
+                startTime_ = std::chrono::system_clock::now();
+            }
+            void recordTimer()
+            {
+                std::chrono::time_point<std::chrono::system_clock> endTime(std::chrono::system_clock::now());
+                std::chrono::duration<double> totalTime{endTime - startTime_};
+                elapsedTime_ = totalTime.count();
+            }
+            std::chrono::time_point<std::chrono::system_clock> startTime_;
+            double elapsedTime_{0};
         };  // class BITstar
 
     }  // namespace geometric
