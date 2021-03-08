@@ -39,6 +39,7 @@
 #include <sstream>
 #include <iomanip>
 #include <memory>
+#include <fstream>
 #include <boost/range/adaptor/reversed.hpp>
 
 #include "ompl/util/Console.h"
@@ -981,6 +982,32 @@ namespace ompl
                 auto current =
                     std::vector<double>{(double)graphPtr_->numStatesGenerated(), bestCost_.value(), elapsedTime_};
                 plannerMetrics_.push_back(current);
+
+                /////////////////////////////////////////////////////////////
+                std::string metricName;
+                if (metricType_ == MetricType::Greedy)
+                {
+                    metricName = "Greedy";
+                }
+                else if (metricType_ == MetricType::Informed)
+                {
+                    metricName = "InformedSet";
+                }
+                else
+                {
+                    metricName = "EXP3";
+                }
+                std::ofstream logfile;
+                std::string solutionDataFile = "/home/adityavk/workspaces/research-ws/code/src/guild_experiments/raw/"
+                                               "planner_metrics/herb_shelf/" +
+                                               metricName + "/data_" + metricName + "_1_" + std::to_string(runSeed_) +
+                                               ".txt";
+
+                logfile.open(solutionDataFile, std::ios_base::app);
+                logfile << (double)graphPtr_->numStatesGenerated() << " " << bestCost_.value() << " " << elapsedTime_
+                        << std::endl;
+                logfile.close();
+                /////////////////////////////////////////////////////////////
 
                 // Stop the solution loop if enabled:
                 stopLoop_ = stopOnSolutionChange_;

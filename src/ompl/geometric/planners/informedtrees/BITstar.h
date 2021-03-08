@@ -303,6 +303,10 @@ namespace ompl
             /** \brief Set a different nearest neighbours datastructure. */
             template <template <typename T> class NN>
             void setNearestNeighbors();
+            void setRunSeed(int seed)
+            {
+                runSeed_ = seed;
+            }
 
             // --
             // LBIT* settings
@@ -626,6 +630,7 @@ namespace ompl
             }
             std::chrono::time_point<std::chrono::system_clock> startTime_;
             double elapsedTime_{0};
+            int runSeed_;
         };  // class BITstar
 
     }  // namespace geometric
